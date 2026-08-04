@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Data
+data/
+*.db
+*.sqlite3
+
+# Config secrets (keep template, ignore real secrets)
+# config/config.yaml  # keep tracked for now
+
+# Node
+node_modules/
+web/dist/
+web/.env.local
+web/.env.*.local
+
+# Auto-generated
+src/auto-imports.d.ts
+web/src/auto-imports.d.ts
+web/src/components.d.ts
+
+# Misc
+*.bak
+*.tmp

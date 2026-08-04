@@ -1,4 +1,4 @@
-"""运维 Agent 主入口 - CLI 交互模式 / 守护进程模式 / 单次执行模式"""
+"""运维 Agent 主入口 - CLI 交互模式 / 守护进程模式 / Web 管理平台模式 / 单次执行模式"""
 
 import asyncio
 import signal
@@ -123,7 +123,7 @@ class OpsAgentApp:
         """启动应用
 
         Args:
-            mode: 运行模式 (cli/daemon)
+            mode: 运行模式 (cli/daemon/web)
         """
         # 设置事件循环策略
         if sys.platform == 'win32':
@@ -151,9 +151,14 @@ class OpsAgentApp:
                 print(f"   已注册定时任务: {len(self.scheduler.get_jobs())}")
                 print(f"   按 Ctrl+C 退出\n")
                 loop.run_forever()
+            elif mode == "web":
+                from .web.app import create_app
+                import uvicorn
+                app = create_app(self.config)
+                uvicorn.run(app, host=self.config.web.host, port=self.config.web.port)
             else:
                 logger.error(f"未知的运行模式: {mode}")
-                print(f"错误: 未知的运行模式 '{mode}'，请使用 'cli' 或 'daemon'")
+                print(f"错误: 未知的运行模式 '{mode}'，请使用 'cli'、'daemon' 或 'web'")
                 sys.exit(1)
         finally:
             self._shutdown()
@@ -195,15 +200,16 @@ def main():
 使用示例:
   python -m src.main                          # CLI 交互模式
   python -m src.main --mode daemon            # 守护进程模式
+  python -m src.main --mode web               # Web 管理平台模式
   python -m src.main --task "巡检所有服务器"    # 单次执行任务
   python -m src.main --config /etc/ops-agent  # 指定配置目录
         """,
     )
     parser.add_argument(
         "--mode",
-        choices=["cli", "daemon"],
+        choices=["cli", "daemon", "web"],
         default="cli",
-        help="运行模式: cli(交互模式, 默认), daemon(守护进程模式)"
+        help="运行模式: cli(交互模式, 默认), daemon(守护进程模式), web(Web 管理平台模式)"
     )
     parser.add_argument(
         "--task",

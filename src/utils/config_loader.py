@@ -58,6 +58,28 @@ class ScheduleGroupConfig(BaseModel):
     log_analysis: Optional[ScheduleConfig] = None
 
 
+class LLMModelConfig(BaseModel):
+    """多模型配置"""
+    name: str
+    provider: str = "openai"
+    api_key: str = ""
+    base_url: Optional[str] = None
+    model: str = ""
+    temperature: float = 0.1
+    max_tokens: int = 4096
+
+
+class WebConfig(BaseModel):
+    """Web 管理平台配置"""
+    host: str = "0.0.0.0"
+    port: int = 8000
+    secret_key: str = "ops-agent-secret-key-change-in-production"
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 7
+    default_admin: str = "admin"
+    default_password: str = "admin123"
+
+
 class AppConfig(BaseModel):
     """应用总配置"""
     llm: LLMConfig
@@ -65,6 +87,9 @@ class AppConfig(BaseModel):
     notify: NotifyConfig = NotifyConfig()
     log_level: str = "INFO"
     schedule: Dict[str, Any] = {}
+    llm_models: List[LLMModelConfig] = []    # 新增：多模型配置
+    web: WebConfig = WebConfig()             # 新增：Web 配置
+    thresholds: dict = {"cpu": 80, "memory": 85, "disk": 90}  # 新增：告警阈值
 
 
 class ConfigLoader:

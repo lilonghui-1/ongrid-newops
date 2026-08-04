@@ -63,3 +63,45 @@ schedule:
   log_analysis:
     cron: "0 */2 * * *"       # 每2小时分析日志
     enabled: false
+
+# ============================================
+# Web 管理平台配置
+# ============================================
+web:
+  host: "0.0.0.0"
+  port: 8000
+  secret_key: "${OPS_AGENT_SECRET_KEY}"
+  access_token_expire_minutes: 30
+  refresh_token_expire_days: 7
+  default_admin: "admin"
+  default_password: "admin123"
+
+# 多模型 LLM 配置（Web 端 AI 对话使用）
+llm_models:
+  - name: "gpt-4"
+    provider: "openai"
+    api_key: "${OPENAI_API_KEY}"
+    base_url: "${OPENAI_BASE_URL}"
+    model: "gpt-4"
+    temperature: 0.1
+    max_tokens: 4096
+  - name: "qwen-plus"
+    provider: "openai"
+    api_key: "${QWEN_API_KEY}"
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    model: "qwen-plus"
+    temperature: 0.1
+    max_tokens: 4096
+  - name: "deepseek-chat"
+    provider: "openai"
+    api_key: "${DEEPSEEK_API_KEY}"
+    base_url: "https://api.deepseek.com/v1"
+    model: "deepseek-chat"
+    temperature: 0.1
+    max_tokens: 4096
+
+# 告警阈值
+thresholds:
+  cpu: 80
+  memory: 85
+  disk: 90
