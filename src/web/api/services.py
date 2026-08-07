@@ -1,9 +1,15 @@
-"""应用服务路由 - 服务列表查看、服务重启/启停、批量操作
+"""应用服务路由 - 服务列表查看、服务重启/启停、批量操作、服务定义管理
 
 端点：
-- GET  /{host}                  : 获取服务器上的服务列表
-- POST /{host}/{service}/restart: 重启指定服务
-- POST /{host}/batch-restart    : 批量重启/启停服务
+- GET  /{host}                          : 获取服务器上的服务列表
+- POST /{host}/{service}/restart        : 重启指定服务
+- POST /{host}/batch-restart            : 批量重启/启停服务
+- GET  /manage                          : 获取所有服务定义列表
+- GET  /manage/{service_id}             : 获取单个服务定义详情
+- POST /manage                          : 新增服务定义
+- PUT  /manage/{service_id}             : 更新服务定义
+- DELETE /manage/{service_id}           : 删除服务定义
+- GET  /manage/by-server/{host}         : 获取指定服务器的服务定义列表
 """
 
 import asyncio
@@ -13,10 +19,14 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from ..core.deps import get_current_active_user, require_operator
+from ..core.deps import get_current_active_user, require_operator, require_admin
 from ..database import get_db
+from ..models.service import AppService
 from ..models.user import User
 from ..schemas.service import (
+    AppServiceCreate,
+    AppServiceResponse,
+    AppServiceUpdate,
     BatchServiceOperationRequest,
     ServiceInfo,
     ServiceListResponse,
@@ -309,4 +319,215 @@ async def batch_restart_services(
         "total": len(results),
         "success_count": success_count,
         "results": results,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 服务定义管理（后台维护的服务元数据 CRUD）
+# ---------------------------------------------------------------------------
+
+
+def _app_service_to_response(service: AppService) -> AppServiceResponse:
+    """将 AppService ORM 对象转换为 AppServiceResponse schema。"""
+    return AppServiceResponse(
+        id=service.id,
+        server_host=service.server_host,
+        name=service.name,
+        display_name=service.display_name or "",
+        description=service.description or "",
+        category=service.category,
+        port=service.port,
+        enabled=service.enabled,
+        created_by=service.created_by or "",
+        created_at=service.created_at,
+        updated_at=service.updated_at,
+    )
+
+
+@router.get("/manage", response_model=List[AppServiceResponse], summary="获取所有服务定义")
+def list_app_services(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """获取所有服务定义列表。
+
+    Args:
+        db: 数据库会话
+        current_user: 当前登录用户
+
+    Returns:
+        AppServiceResponse 列表
+    """
+    services = db.query(AppService).order_by(AppService.server_host, AppService.name).all()
+    return [_app_service_to_response(s) for s in services]
+
+
+@router.get("/manage/by-server/{host}", response_model=List[AppServiceResponse], summary="获取指定服务器的服务定义")
+def list_app_services_by_server(
+    host: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """获取指定服务器的服务定义列表。
+
+    Args:
+        host: 服务器地址
+        db: 数据库会话
+        current_user: 当前登录用户
+
+    Returns:
+        AppServiceResponse 列表
+    """
+    services = (
+        db.query(AppService)
+        .filter(AppService.server_host == host)
+        .order_by(AppService.name)
+        .all()
+    )
+    return [_app_service_to_response(s) for s in services]
+
+
+@router.get("/manage/{service_id}", response_model=AppServiceResponse, summary="获取服务定义详情")
+def get_app_service(
+    service_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """获取单个服务定义详情。
+
+    Args:
+        service_id: 服务定义 ID
+        db: 数据库会话
+        current_user: 当前登录用户
+
+    Returns:
+        AppServiceResponse
+    """
+    service = db.query(AppService).filter(AppService.id == service_id).first()
+    if not service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"服务定义不存在: id={service_id}",
+        )
+    return _app_service_to_response(service)
+
+
+@router.post("/manage", response_model=AppServiceResponse, summary="新增服务定义")
+def create_app_service(
+    request: AppServiceCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_operator),
+):
+    """新增服务定义。
+
+    检查同一服务器下服务名称是否已存在，避免重复。
+
+    Args:
+        request: 新增服务定义请求
+        db: 数据库会话
+        current_user: 当前登录用户（需要 operator 权限）
+
+    Returns:
+        AppServiceResponse: 新创建的服务定义
+    """
+    # 检查是否已存在同名服务（同一服务器下）
+    existing = db.query(AppService).filter(
+        AppService.server_host == request.server_host,
+        AppService.name == request.name,
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"服务定义已存在: server={request.server_host}, name={request.name}",
+        )
+
+    service = AppService(
+        server_host=request.server_host,
+        name=request.name,
+        display_name=request.display_name or None,
+        description=request.description or None,
+        category=request.category,
+        port=request.port,
+        enabled=request.enabled,
+        created_by=current_user.username,
+    )
+    db.add(service)
+    db.commit()
+    db.refresh(service)
+
+    return _app_service_to_response(service)
+
+
+@router.put("/manage/{service_id}", response_model=AppServiceResponse, summary="更新服务定义")
+def update_app_service(
+    service_id: int,
+    request: AppServiceUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_operator),
+):
+    """更新服务定义。
+
+    仅更新请求中提供的字段，未提供的字段保持不变。
+
+    Args:
+        service_id: 服务定义 ID
+        request: 更新服务定义请求（可选字段）
+        db: 数据库会话
+        current_user: 当前登录用户（需要 operator 权限）
+
+    Returns:
+        AppServiceResponse: 更新后的服务定义
+    """
+    service = db.query(AppService).filter(AppService.id == service_id).first()
+    if not service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"服务定义不存在: id={service_id}",
+        )
+
+    # 仅更新提供的字段
+    update_data = request.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(service, field, value)
+
+    db.commit()
+    db.refresh(service)
+
+    return _app_service_to_response(service)
+
+
+@router.delete("/manage/{service_id}", summary="删除服务定义")
+def delete_app_service(
+    service_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """删除服务定义。
+
+    仅删除数据库记录，不影响服务器上的实际服务。
+    需要管理员权限。
+
+    Args:
+        service_id: 服务定义 ID
+        db: 数据库会话
+        current_user: 当前登录用户（需要 admin 权限）
+
+    Returns:
+        操作结果
+    """
+    service = db.query(AppService).filter(AppService.id == service_id).first()
+    if not service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"服务定义不存在: id={service_id}",
+        )
+
+    service_name = service.display_name or service.name
+    db.delete(service)
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"服务定义「{service_name}」已删除",
+        "service_id": service_id,
     }

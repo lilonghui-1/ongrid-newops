@@ -131,7 +131,7 @@ const expandedCategories = ref<string[]>(['server', 'database', 'llm', 'applicat
 
 async function loadServers() {
   try {
-    const res = await request.get<ServerItem[] | { items?: ServerItem[] }>('/servers/')
+    const res = await request.get<ServerItem[] | { items?: ServerItem[] }>('/servers')
     const raw = res.data
     servers.value = Array.isArray(raw)
       ? raw
