@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Document, Refresh, Tickets } from '@element-plus/icons-vue'
+import { Delete, Document, Plus, Refresh, Tickets } from '@element-plus/icons-vue'
 import { Codemirror } from 'vue-codemirror'
 import { yaml } from '@codemirror/lang-yaml'
 import { json } from '@codemirror/lang-json'
@@ -17,7 +17,16 @@ interface ServerItem {
 interface ConfigFile {
   path: string
   name?: string
+  format?: string
+  category?: string
+  is_custom?: boolean
   [key: string]: unknown
+}
+
+interface CategoryInfo {
+  category: string
+  label: string
+  count: number
 }
 
 interface HistoryItem {
@@ -38,6 +47,14 @@ interface DiffRow {
   newLine: string
 }
 
+const categoryLabels: Record<string, string> = {
+  server: '服务器配置',
+  database: '数据库配置',
+  llm: 'LLM 配置',
+  application: '应用配置',
+  other: '其他',
+}
+
 const servers = ref<ServerItem[]>([])
 const selectedHost = ref('')
 const configFiles = ref<ConfigFile[]>([])
@@ -53,6 +70,17 @@ const historyList = ref<HistoryItem[]>([])
 
 const diffVisible = ref(false)
 const diffRows = ref<DiffRow[]>([])
+
+// 新增配置对话框
+const createDialogVisible = ref(false)
+const createLoading = ref(false)
+const createForm = reactive({
+  name: '',
+  path: '',
+  category: 'application',
+  content: '',
+  description: '',
+})
 
 /** 根据文件扩展名选择 CodeMirror 语法扩展 */
 const extensions = computed<Extension[]>(() => {
@@ -75,9 +103,35 @@ const hasUnsavedChanges = computed(
   () => content.value !== originalContent.value,
 )
 
+/** 按分类分组的配置文件 */
+const filesByCategory = computed(() => {
+  const groups: Record<string, ConfigFile[]> = {}
+  for (const f of configFiles.value) {
+    const cat = (f.category as string) || 'other'
+    if (!groups[cat]) groups[cat] = []
+    groups[cat].push(f)
+  }
+  return groups
+})
+
+/** 有文件的非空分类列表（按固定顺序排列） */
+const activeCategories = computed(() => {
+  const order = ['server', 'database', 'llm', 'application', 'other']
+  const present = Object.keys(filesByCategory.value)
+  // 按固定顺序返回有文件的分类，再追加未知分类
+  const result: string[] = order.filter((k) => present.includes(k))
+  for (const k of present) {
+    if (!result.includes(k)) result.push(k)
+  }
+  return result
+})
+
+/** 默认展开所有分类 */
+const expandedCategories = ref<string[]>(['server', 'database', 'llm', 'application', 'other'])
+
 async function loadServers() {
   try {
-    const res = await request.get<ServerItem[] | { items?: ServerItem[] }>('/servers')
+    const res = await request.get<ServerItem[] | { items?: ServerItem[] }>('/servers/')
     const raw = res.data
     servers.value = Array.isArray(raw)
       ? raw
@@ -329,6 +383,79 @@ async function refreshFile() {
   }
 }
 
+function openCreateDialog() {
+  createForm.name = ''
+  createForm.path = ''
+  createForm.category = 'application'
+  createForm.content = ''
+  createForm.description = ''
+  createDialogVisible.value = true
+}
+
+async function confirmCreate() {
+  if (!selectedHost.value) {
+    ElMessage.warning('请先选择服务器')
+    return
+  }
+  if (!createForm.name.trim()) {
+    ElMessage.warning('请输入配置文件名称')
+    return
+  }
+  if (!createForm.path.trim()) {
+    ElMessage.warning('请输入文件路径')
+    return
+  }
+  createLoading.value = true
+  try {
+    await request.post(
+      `/configs/${encodeURIComponent(selectedHost.value)}/create`,
+      {
+        name: createForm.name.trim(),
+        path: createForm.path.trim(),
+        category: createForm.category,
+        content: createForm.content,
+        description: createForm.description.trim(),
+      },
+    )
+    ElMessage.success('配置文件已创建并保存到服务器')
+    createDialogVisible.value = false
+    await loadConfigList()
+  } catch {
+    // 错误提示由拦截器处理
+  } finally {
+    createLoading.value = false
+  }
+}
+
+async function deleteCustomConfig(file: ConfigFile) {
+  const configId = (file as { config_id?: number }).config_id
+  if (!configId) {
+    ElMessage.warning('未找到对应的自定义配置 ID')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除自定义配置「${file.name || file.path}」吗？此操作仅删除配置定义，不会删除服务器上的实际文件。`,
+      '删除确认',
+      { type: 'warning', confirmButtonText: '确定删除', cancelButtonText: '取消' },
+    )
+    await request.delete(
+      `/configs/${encodeURIComponent(selectedHost.value)}/custom/${configId}`,
+    )
+    ElMessage.success('自定义配置已删除')
+    if (selectedFile.value === file.path) {
+      selectedFile.value = ''
+      content.value = ''
+      originalContent.value = ''
+    }
+    await loadConfigList()
+  } catch (e) {
+    if (e !== 'cancel') {
+      // 接口错误由拦截器处理
+    }
+  }
+}
+
 onMounted(async () => {
   await loadServers()
   await loadConfigList()
@@ -344,6 +471,14 @@ onMounted(async () => {
           <template #header>
             <div class="side-head">
               <span class="card-title">配置文件</span>
+              <el-button
+                type="primary"
+                size="small"
+                :icon="Plus"
+                @click="openCreateDialog"
+              >
+                新增
+              </el-button>
             </div>
           </template>
           <div class="server-select">
@@ -362,25 +497,48 @@ onMounted(async () => {
               />
             </el-select>
           </div>
-          <el-menu
-            :default-active="selectedFile"
-            class="file-menu"
-            @select="(key: string) => selectFile({ path: key })"
-          >
-            <el-empty
-              v-if="!configFiles.length"
-              description="暂无配置文件"
-              :image-size="60"
-            />
-            <el-menu-item
-              v-for="f in configFiles"
-              :key="f.path"
-              :index="f.path"
+          <el-empty
+            v-if="!configFiles.length"
+            description="暂无配置文件"
+            :image-size="60"
+          />
+          <el-collapse v-else v-model="expandedCategories" class="config-collapse">
+            <el-collapse-item
+              v-for="cat in activeCategories"
+              :key="cat"
+              :name="cat"
             >
-              <el-icon><Document /></el-icon>
-              <span>{{ f.name || f.path }}</span>
-            </el-menu-item>
-          </el-menu>
+              <template #title>
+                <div class="cat-title">
+                  <span>{{ categoryLabels[cat] || cat }}</span>
+                  <el-tag size="small" type="info" round>
+                    {{ (filesByCategory[cat] || []).length }}
+                  </el-tag>
+                </div>
+              </template>
+              <el-menu
+                :default-active="selectedFile"
+                class="file-menu"
+                @select="(key: string) => selectFile({ path: key })"
+              >
+                <el-menu-item
+                  v-for="f in filesByCategory[cat] || []"
+                  :key="f.path"
+                  :index="f.path"
+                >
+                  <el-icon><Document /></el-icon>
+                  <span class="file-name">{{ f.name || f.path }}</span>
+                  <el-icon
+                    v-if="f.is_custom"
+                    class="delete-btn"
+                    @click.stop="deleteCustomConfig(f)"
+                  >
+                    <Delete />
+                  </el-icon>
+                </el-menu-item>
+              </el-menu>
+            </el-collapse-item>
+          </el-collapse>
         </el-card>
       </el-col>
 
@@ -528,6 +686,61 @@ onMounted(async () => {
         <el-button @click="historyVisible = false">关闭</el-button>
       </template>
     </el-dialog>
+
+    <!-- 新增配置文件对话框 -->
+    <el-dialog
+      v-model="createDialogVisible"
+      title="新增配置文件"
+      width="600px"
+    >
+      <el-form label-width="90px" label-position="right">
+        <el-form-item label="分类">
+          <el-select v-model="createForm.category" style="width: 100%">
+            <el-option label="服务器配置" value="server" />
+            <el-option label="数据库配置" value="database" />
+            <el-option label="LLM 配置" value="llm" />
+            <el-option label="应用配置" value="application" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="文件名称">
+          <el-input
+            v-model="createForm.name"
+            placeholder="如: app-config.yml"
+          />
+        </el-form-item>
+        <el-form-item label="文件路径">
+          <el-input
+            v-model="createForm.path"
+            placeholder="如: /etc/myapp/config.yml"
+          />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input
+            v-model="createForm.description"
+            placeholder="可选，配置文件描述"
+          />
+        </el-form-item>
+        <el-form-item label="初始内容">
+          <el-input
+            v-model="createForm.content"
+            type="textarea"
+            :rows="8"
+            placeholder="可留空，保存后通过编辑器修改"
+            style="font-family: monospace;"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="createDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="createLoading"
+          @click="confirmCreate"
+        >
+          创建并保存
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -558,10 +771,46 @@ onMounted(async () => {
     margin-bottom: 12px;
   }
 
+  .config-collapse {
+    border: none;
+
+    :deep(.el-collapse-item__header) {
+      padding-left: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #303133;
+    }
+
+    :deep(.el-collapse-item__content) {
+      padding-bottom: 0;
+    }
+  }
+
+  .cat-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
   .file-menu {
     border-right: none;
-    max-height: calc(100vh - 260px);
-    overflow: auto;
+  }
+
+  .file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .delete-btn {
+    margin-left: 8px;
+    color: #c0c4cc;
+    flex-shrink: 0;
+
+    &:hover {
+      color: #f56c6c;
+    }
   }
 
   :deep(.el-card__body) {

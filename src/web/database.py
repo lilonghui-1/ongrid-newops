@@ -94,6 +94,7 @@ def init_database() -> None:
         AuditLog,
         ChatHistory,
         ConfigBackup,
+        CustomConfig,
         ServerMetric,
         User,
     )

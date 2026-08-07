@@ -15,6 +15,19 @@ class ConfigFileInfo(BaseModel):
     path: str = Field(..., description="文件路径")
     name: str = Field(..., description="文件名称")
     format: str = Field(..., description="文件格式: yml/json/conf/properties")
+    category: str = Field("other", description="配置分类: server/database/llm/application/other")
+    is_custom: bool = Field(False, description="是否为用户自定义配置")
+    config_id: Optional[int] = Field(None, description="自定义配置的数据库 ID（仅自定义配置有值）")
+
+
+class ConfigCreateRequest(BaseModel):
+    """新增配置文件请求"""
+
+    name: str = Field(..., description="配置文件名称")
+    path: str = Field(..., description="服务器上的文件路径")
+    category: str = Field("application", description="配置分类: server/database/llm/application")
+    content: str = Field("", description="初始内容（可为空）")
+    description: str = Field("", description="配置描述")
 
 
 class ConfigFileContent(BaseModel):

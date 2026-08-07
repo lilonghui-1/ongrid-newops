@@ -84,7 +84,7 @@ async function loadData() {
       params.start_time = new Date(query.timeRange[0]).toISOString()
       params.end_time = new Date(query.timeRange[1]).toISOString()
     }
-    const res = await request.get('/audit', { params })
+    const res = await request.get('/audit/', { params })
     const data = res.data
     const items: AuditItem[] = Array.isArray(data)
       ? data

@@ -47,7 +47,7 @@ class AuditLogPage(BaseModel):
     items: List[AuditLogItem] = Field(default_factory=list, description="日志列表")
 
 
-@router.get("/", response_model=AuditLogPage, summary="查询审计日志")
+@router.get("", response_model=AuditLogPage, summary="查询审计日志")
 def list_audit_logs(
     user_id: Optional[int] = Query(None, description="按用户 ID 筛选"),
     action: Optional[str] = Query(None, description="按操作动作筛选（模糊匹配）"),

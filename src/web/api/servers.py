@@ -202,7 +202,7 @@ def _parse_disk_info(text: str) -> DiskInfo:
 # ---------------------------------------------------------------------------
 # 路由
 # ---------------------------------------------------------------------------
-@router.get("/", response_model=List[ServerInfo], summary="获取服务器列表")
+@router.get("", response_model=List[ServerInfo], summary="获取服务器列表")
 async def list_servers(
     current_user: User = Depends(get_current_active_user),
 ):
