@@ -34,8 +34,10 @@ def create_app(config) -> FastAPI:
     from .api.logs import router as logs_router
     from .api.services import router as services_router
     from .api.configs import router as configs_router
+    from .api.local_configs import router as local_configs_router
     from .api.chat import router as chat_router
     from .api.audit import router as audit_router
+    from .api.alert import router as alert_router
     from .websocket.log_stream import router as ws_log_router
     from .websocket.server_monitor import router as ws_monitor_router
     
@@ -44,7 +46,9 @@ def create_app(config) -> FastAPI:
     app.include_router(logs_router, prefix="/api/logs", tags=["日志"])
     app.include_router(services_router, prefix="/api/services", tags=["应用服务"])
     app.include_router(configs_router, prefix="/api/configs", tags=["配置文件"])
+    app.include_router(local_configs_router, prefix="/api/local-configs", tags=["本地配置管理"])
     app.include_router(chat_router, prefix="/api/chat", tags=["AI对话"])
+    app.include_router(alert_router, prefix="/api/alert", tags=["告警管理"])
     app.include_router(audit_router, prefix="/api/audit", tags=["审计日志"])
     app.include_router(ws_log_router, prefix="/ws", tags=["WebSocket"])
     app.include_router(ws_monitor_router, prefix="/ws", tags=["WebSocket"])

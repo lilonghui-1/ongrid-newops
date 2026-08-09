@@ -80,11 +80,23 @@ class WebConfig(BaseModel):
     default_password: str = "admin123"
 
 
+class EmailConfig(BaseModel):
+    """邮件通知配置"""
+    smtp_host: Optional[str] = None
+    smtp_port: int = 465
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[str] = None
+    from_addr: Optional[str] = None
+    to_addrs: List[str] = []
+    use_ssl: bool = True
+
+
 class AppConfig(BaseModel):
     """应用总配置"""
     llm: LLMConfig
     servers: List[ServerConfig] = []
     notify: NotifyConfig = NotifyConfig()
+    email: EmailConfig = EmailConfig()
     log_level: str = "INFO"
     schedule: Dict[str, Any] = {}
     llm_models: List[LLMModelConfig] = []    # 新增：多模型配置

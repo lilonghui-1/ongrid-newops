@@ -100,6 +100,16 @@ llm_models:
     temperature: 0.1
     max_tokens: 4096
 
+# 邮件通知配置
+email:
+  smtp_host: "${SMTP_HOST}"
+  smtp_port: 465
+  smtp_user: "${SMTP_USER}"
+  smtp_password: "${SMTP_PASSWORD}"
+  from_addr: "${SMTP_FROM}"
+  to_addrs: ["${ALERT_EMAIL}"]
+  use_ssl: true
+
 # 告警阈值
 thresholds:
   cpu: 80

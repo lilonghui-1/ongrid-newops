@@ -5,6 +5,7 @@ from .audit_log import AuditLog
 from .chat_history import ChatHistory
 from .config_backup import ConfigBackup
 from .custom_config import CustomConfig
+from .email_notify import EmailLog
 from .server_metric import ServerMetric
 from .service import AppService
 from .user import User
@@ -16,6 +17,7 @@ __all__ = [
     "CustomConfig",
     "Alert",
     "ChatHistory",
+    "EmailLog",
     "ServerMetric",
     "AppService",
 ]

@@ -110,6 +110,11 @@ class OpsScheduler:
 
                 # 发送巡检报告通知
                 self._notify_report("运维巡检报告", report, "info")
+
+                # 如果有异常，发送告警邮件
+                if self._has_issues(report):
+                    self._send_email_alert("运维巡检告警", report, "warning")
+
                 logger.info("定时巡检任务完成")
             finally:
                 loop.close()
@@ -117,6 +122,7 @@ class OpsScheduler:
         except Exception as e:
             logger.error(f"定时巡检任务失败: {e}")
             self._notify_report("巡检任务失败", f"错误: {type(e).__name__}: {e}", "error")
+            self._send_email_alert("巡检任务失败", f"错误: {type(e).__name__}: {e}", "error")
 
     def _run_log_analysis(self):
         """定时日志分析任务"""
@@ -142,9 +148,10 @@ class OpsScheduler:
                 result = loop.run_until_complete(self.master_agent.run(task))
                 report = result.get('final_report', '日志分析完成')
 
-                # 只在有异常时发送通知
+                # 只在有异常时发送通知和邮件告警
                 if self._has_issues(report):
                     self._notify_report("日志分析告警", report, "warning")
+                    self._send_email_alert("日志分析告警", report, "warning")
                 logger.info("定时日志分析任务完成")
             finally:
                 loop.close()
@@ -152,9 +159,10 @@ class OpsScheduler:
         except Exception as e:
             logger.error(f"定时日志分析任务失败: {e}")
             self._notify_report("日志分析任务失败", f"错误: {type(e).__name__}: {e}", "error")
+            self._send_email_alert("日志分析任务失败", f"错误: {type(e).__name__}: {e}", "error")
 
     def _notify_report(self, title: str, content: str, level: str):
-        """发送报告通知"""
+        """发送报告通知（企业微信/钉钉）"""
         notify_tool = ToolRegistry.get("send_notification")
         if not notify_tool:
             logger.warning("通知工具未注册，跳过通知发送")
@@ -170,6 +178,28 @@ class OpsScheduler:
             )
         except Exception as e:
             logger.error(f"发送通知失败: {e}")
+
+    def _send_email_alert(self, title: str, content: str, level: str = "warning"):
+        """发送告警邮件"""
+        email_tool = ToolRegistry.get("send_email")
+        if not email_tool:
+            logger.warning("邮件工具未注册，跳过邮件告警")
+            return
+
+        try:
+            # 转换为 HTML 格式
+            html_body = content.replace("\n", "<br>")
+            result = email_tool.send_alert(
+                subject=title,
+                body=html_body,
+                level=level,
+            )
+            if result["success"]:
+                logger.info(f"告警邮件已发送: {title}")
+            else:
+                logger.warning(f"告警邮件发送失败: {result['message']}")
+        except Exception as e:
+            logger.error(f"发送告警邮件异常: {e}")
 
     def _has_issues(self, report: str) -> bool:
         """检查报告中是否有异常"""

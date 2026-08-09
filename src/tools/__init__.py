@@ -8,6 +8,7 @@ from .db_tools import DBQueryTool, DBStatusTool, RedisInfoTool
 from .log_tools import LogFetchTool, LogAnalyzeTool, LogPlatformQueryTool
 from .system_tools import SystemMetricsTool, ServiceControlTool
 from .notify_tools import NotifyTool
+from .email_tool import EmailTool
 
 logger = logging.getLogger(__name__)
 
@@ -47,5 +48,13 @@ def register_all_tools(config):
 
     # 5. 通知工具
     ToolRegistry.register(NotifyTool(config))
+
+    # 6. 邮件工具
+    email_tool = EmailTool(config)
+    ToolRegistry.register(email_tool)
+    if email_tool.is_configured:
+        logger.info("邮件工具已注册（配置完整）")
+    else:
+        logger.warning("邮件工具已注册（配置不完整，请设置 SMTP 环境变量）")
 
     logger.info(f"所有工具注册完成，共 {len(ToolRegistry.get_all())} 个工具: {ToolRegistry.get_names()}")
