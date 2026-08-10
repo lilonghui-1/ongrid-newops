@@ -467,7 +467,7 @@ onMounted(async () => {
           </template>
 
           <el-table
-            :data="filteredDefList"
+            :data="filteredDefList as AppServiceDef[]"
             v-loading="defLoading"
             stripe
             style="width: 100%"
