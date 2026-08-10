@@ -88,6 +88,18 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '告警管理' },
       },
       {
+        path: 'knowledge',
+        name: 'Knowledge',
+        component: () => import('@/views/KnowledgeView.vue'),
+        meta: { title: '知识库管理' },
+      },
+      {
+        path: 'heal-rules',
+        name: 'HealRules',
+        component: () => import('@/views/HealRulesView.vue'),
+        meta: { title: '自愈规则管理' },
+      },
+      {
         path: 'audit',
         name: 'Audit',
         component: () => import('@/views/AuditView.vue'),

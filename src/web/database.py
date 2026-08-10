@@ -97,6 +97,8 @@ def init_database() -> None:
         ConfigBackup,
         CustomConfig,
         EmailLog,
+        HealRule,
+        KnowledgeEntry,
         ServerMetric,
         SystemParameter,
         User,

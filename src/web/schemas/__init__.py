@@ -20,6 +20,20 @@ from .config_file import (
     ConfigRollbackRequest,
     ConfigSaveRequest,
 )
+from .heal_rule import (
+    HealRuleCreate,
+    HealRuleListResponse,
+    HealRuleResponse,
+    HealRuleUpdate,
+    RuleAction,
+)
+from .knowledge import (
+    CategoryOption,
+    KnowledgeEntryCreate,
+    KnowledgeEntryListResponse,
+    KnowledgeEntryResponse,
+    KnowledgeEntryUpdate,
+)
 from .log import (
     LogExportRequest,
     LogPlatformQueryRequest,
@@ -61,6 +75,18 @@ __all__ = [
     "ConfigFileInfo",
     "ConfigRollbackRequest",
     "ConfigSaveRequest",
+    # heal_rule
+    "HealRuleCreate",
+    "HealRuleListResponse",
+    "HealRuleResponse",
+    "HealRuleUpdate",
+    "RuleAction",
+    # knowledge
+    "CategoryOption",
+    "KnowledgeEntryCreate",
+    "KnowledgeEntryListResponse",
+    "KnowledgeEntryResponse",
+    "KnowledgeEntryUpdate",
     # log
     "LogExportRequest",
     "LogPlatformQueryRequest",

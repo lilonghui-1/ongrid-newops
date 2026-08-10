@@ -1,5 +1,6 @@
 """运维知识库 - 存储和检索常见运维问题的诊断规则和处理方案"""
 
+import json
 import yaml
 import logging
 from pathlib import Path
@@ -25,9 +26,36 @@ class KnowledgeBase:
 
     def __init__(self, knowledge_dir: str = "knowledge"):
         self._entries: List[KnowledgeEntry] = []
-        self._load(knowledge_dir)
+        self._load_from_db()
+        if not self._entries:
+            self._load_from_yaml(knowledge_dir)
 
-    def _load(self, knowledge_dir: str):
+    def _load_from_db(self):
+        """从数据库加载知识条目"""
+        try:
+            from src.web.database import SessionLocal
+            from src.web.models.knowledge_entry import KnowledgeEntry as DBKnowledgeEntry
+
+            db = SessionLocal()
+            try:
+                db_entries = db.query(DBKnowledgeEntry).all()
+                for entry in db_entries:
+                    self._entries.append(KnowledgeEntry(
+                        category=entry.category,
+                        symptom=entry.symptom,
+                        possible_causes=json.loads(entry.possible_causes) if entry.possible_causes else [],
+                        diagnosis_steps=json.loads(entry.diagnosis_steps) if entry.diagnosis_steps else [],
+                        solutions=json.loads(entry.solutions) if entry.solutions else [],
+                        severity=entry.severity,
+                    ))
+                if db_entries:
+                    logger.info(f"从数据库加载了 {len(db_entries)} 条知识条目")
+            finally:
+                db.close()
+        except Exception as e:
+            logger.debug(f"从数据库加载知识条目失败（可忽略）: {e}")
+
+    def _load_from_yaml(self, knowledge_dir: str):
         """从 YAML 文件加载知识条目"""
         path = Path(knowledge_dir)
         if not path.exists():

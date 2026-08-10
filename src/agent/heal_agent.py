@@ -1,5 +1,6 @@
 """自愈 Agent - 自动处理已诊断的问题"""
 
+import json
 import logging
 from pathlib import Path
 
@@ -31,6 +32,41 @@ class HealAgent:
         self._agent = None
 
     def _load_rules(self) -> list:
+        """从数据库加载自愈规则，若数据库无数据则回退到 rules.yaml"""
+        rules = self._load_rules_from_db()
+        if rules:
+            return rules
+        return self._load_rules_from_yaml()
+
+    def _load_rules_from_db(self) -> list:
+        """从数据库加载自愈规则"""
+        try:
+            from src.web.database import SessionLocal
+            from src.web.models.heal_rule import HealRule
+
+            db = SessionLocal()
+            try:
+                db_rules = db.query(HealRule).filter(HealRule.enabled == True).all()
+                if not db_rules:
+                    return []
+                result = []
+                for rule in db_rules:
+                    actions = json.loads(rule.actions) if rule.actions else []
+                    result.append({
+                        "name": rule.name,
+                        "condition": rule.condition,
+                        "description": rule.description or "",
+                        "actions": actions,
+                    })
+                logger.info(f"从数据库加载了 {len(result)} 条自愈规则")
+                return result
+            finally:
+                db.close()
+        except Exception as e:
+            logger.debug(f"从数据库加载自愈规则失败（可忽略）: {e}")
+            return []
+
+    def _load_rules_from_yaml(self) -> list:
         """从 rules.yaml 加载自愈规则"""
         rules_path = Path("config/rules.yaml")
         if rules_path.exists():
@@ -38,7 +74,7 @@ class HealAgent:
                 with open(rules_path, 'r', encoding='utf-8') as f:
                     data = yaml.safe_load(f) or {}
                 rules = data.get('heal_rules', [])
-                logger.info(f"加载了 {len(rules)} 条自愈规则")
+                logger.info(f"从 YAML 加载了 {len(rules)} 条自愈规则")
                 return rules
             except Exception as e:
                 logger.error(f"加载自愈规则失败: {e}")

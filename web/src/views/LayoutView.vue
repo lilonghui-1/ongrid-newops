@@ -24,6 +24,8 @@ const menus: MenuItem[] = [
   { index: '/local-configs', title: '本地配置管理', icon: 'Setting' },
   { index: '/parameters', title: '参数管理', icon: 'Key' },
   { index: '/alerts', title: '告警管理', icon: 'WarningFilled' },
+  { index: '/knowledge', title: '知识库管理', icon: 'Reading' },
+  { index: '/heal-rules', title: '自愈规则管理', icon: 'Setting' },
   { index: '/chat', title: 'AI 对话', icon: 'ChatLineRound' },
   { index: '/audit', title: '审计日志', icon: 'Tickets' },
 ]
