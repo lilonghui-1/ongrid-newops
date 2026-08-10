@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Document, Refresh, Setting } from '@element-plus/icons-vue'
+import { Document, Refresh, Setting } from '@element-plus/icons-vue'
 import { Codemirror } from 'vue-codemirror'
 import { yaml } from '@codemirror/lang-yaml'
 import type { Extension } from '@codemirror/state'

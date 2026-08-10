@@ -122,3 +122,34 @@ heal_rules:
           command: "powershell -Command \"Stop-Service wuauserv; Remove-Item -Path 'C:\\Windows\\SoftwareDistribution\\Download\\*' -Recurse -Force -ErrorAction SilentlyContinue; Start-Service wuauserv\""
         confirm_required: true
     description: "Windows 磁盘使用率超过90%时清理 Windows Update 缓存（需确认）"
+
+  # ============================================
+  # 麒麟/RHEL 系 Linux 自愈规则
+  # ============================================
+  - name: "clean_yum_cache"
+    condition: "disk_usage_percent > 90"
+    actions:
+      - tool: "ssh_execute"
+        params:
+          command: "sudo yum clean all && sudo yum autoremove -y"
+        confirm_required: true
+    description: "磁盘使用率超过90%时清理 yum 缓存（麒麟/RHEL/openEuler 系）"
+
+  - name: "clean_dnf_cache"
+    condition: "disk_usage_percent > 90"
+    actions:
+      - tool: "ssh_execute"
+        params:
+          command: "sudo dnf clean all && sudo dnf autoremove -y"
+        confirm_required: true
+    description: "磁盘使用率超过90%时清理 dnf 缓存（新版麒麟/openEuler 系）"
+
+  - name: "restart_kylin_service"
+    condition: "service_status == 'stopped' and service_auto_start == true"
+    actions:
+      - tool: "service_control"
+        params:
+          service_name: "nginx"
+          action: "restart"
+        confirm_required: false
+    description: "麒麟系统自动启动服务停止时自动重启"

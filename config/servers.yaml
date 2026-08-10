@@ -114,3 +114,65 @@ servers:
     password: "${WIN_SERVER_PASSWORD}"
     os_type: "windows"
     tags: ["windows", "web", "production"]
+
+  # ============================================
+  # 国产操作系统示例
+  # ============================================
+
+  # 示例：麒麟操作系统服务器（Kylin）
+  - name: "kylin-server-01"
+    host: "192.168.1.40"
+    port: 22
+    username: "ops"
+    password: "${KYLIN_SSH_PASSWORD}"
+    os_type: "linux"
+    tags: ["kylin", "production", "domestic"]
+    databases:
+      - type: "dm"
+        host: "127.0.0.1"
+        port: 5236
+        username: "SYSDBA"
+        password: "${DM_PASSWORD}"
+        name: "DAMENG"
+
+  # 示例：统信 UOS 服务器
+  - name: "uos-server-01"
+    host: "192.168.1.41"
+    port: 22
+    username: "ops"
+    password: "${UOS_SSH_PASSWORD}"
+    os_type: "linux"
+    tags: ["uos", "production", "domestic"]
+    databases:
+      - type: "kingbase"
+        host: "127.0.0.1"
+        port: 54321
+        username: "system"
+        password: "${KINGBASE_PASSWORD}"
+        name: "test"
+
+  # 示例：openEuler 服务器
+  - name: "openeuler-server-01"
+    host: "192.168.1.42"
+    port: 22
+    username: "ops"
+    private_key_path: "${SSH_PRIVATE_KEY_PATH}"
+    os_type: "linux"
+    tags: ["openeuler", "production", "domestic"]
+    databases:
+      - type: "postgresql"
+        host: "127.0.0.1"
+        port: 5432
+        username: "monitor"
+        password: "${PG_PASSWORD}"
+        name: "app_db"
+
+  # 示例：Linux 应用服务器（密码登录）
+  - name: "linux-app-server-01"
+    host: "192.168.1.50"
+    port: 22
+    username: "ops"
+    password: "${LINUX_SSH_PASSWORD}"
+    os_type: "linux"
+    tags: ["linux", "application", "production"]
+    databases: []

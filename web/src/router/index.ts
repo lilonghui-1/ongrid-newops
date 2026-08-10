@@ -76,6 +76,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '本地配置管理' },
       },
       {
+        path: 'parameters',
+        name: 'Parameters',
+        component: () => import('@/views/ParameterView.vue'),
+        meta: { title: '参数管理' },
+      },
+      {
         path: 'alerts',
         name: 'Alerts',
         component: () => import('@/views/AlertView.vue'),

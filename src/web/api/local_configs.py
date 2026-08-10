@@ -24,13 +24,19 @@ from ..schemas.local_config import (
     LocalConfigReloadResponse,
     LocalConfigSaveRequest,
 )
+from ...utils.config_loader import ConfigLoader
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["本地配置管理"])
 
-# 本地配置文件定义
-CONFIG_DIR = Path("/workspace/config")
+# 本地配置文件定义 - 从 ConfigLoader 单例动态获取配置目录
+def _get_config_dir() -> Path:
+    """获取配置文件目录（从 ConfigLoader 单例动态获取）"""
+    loader = ConfigLoader.get_instance()
+    return Path(loader.config_dir)
+
+CONFIG_DIR = _get_config_dir()
 
 LOCAL_CONFIG_FILES = {
     "config.yaml": LocalConfigFileInfo(

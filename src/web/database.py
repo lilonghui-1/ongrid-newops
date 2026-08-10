@@ -98,6 +98,7 @@ def init_database() -> None:
         CustomConfig,
         EmailLog,
         ServerMetric,
+        SystemParameter,
         User,
     )
 

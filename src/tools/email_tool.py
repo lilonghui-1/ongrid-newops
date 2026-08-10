@@ -73,14 +73,21 @@ class EmailTool(BaseTool):
 
     @property
     def is_configured(self) -> bool:
-        """检查邮件配置是否完整"""
-        return all([
-            self._smtp_host,
-            self._smtp_user,
-            self._smtp_password,
-            self._from_addr,
-            self._to_addrs,
-        ])
+        """检查邮件配置是否完整（检测未解析的占位符）"""
+        values = [self._smtp_host, self._smtp_user, self._smtp_password, self._from_addr]
+        if not all(values):
+            return False
+        # 检测未解析的 ${...} 占位符
+        for v in values:
+            if v and v.startswith("${") and v.endswith("}"):
+                return False
+        if not self._to_addrs:
+            return False
+        # 检测 to_addrs 中的占位符
+        for addr in self._to_addrs:
+            if addr and addr.startswith("${") and addr.endswith("}"):
+                return False
+        return True
 
     def _build_html_body(self, subject: str, body: str, level: str = "warning") -> str:
         """构建 HTML 格式邮件正文"""

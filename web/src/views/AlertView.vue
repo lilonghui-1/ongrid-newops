@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Download, Refresh, WarningFilled } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { Refresh } from '@element-plus/icons-vue'
 import request from '@/api/request'
 
 interface EmailLogItem {
@@ -42,6 +42,8 @@ const levelOptions = [
   { value: 'error', label: '错误', color: '#f56c6c' },
   { value: 'critical', label: '严重', color: '#b22222' },
 ]
+
+// levelOptions 用于发送邮件对话框的告警级别选择
 
 async function loadLogs() {
   loading.value = true
@@ -92,15 +94,7 @@ function statusLabel(st: string) {
   return st
 }
 
-function levelTag(level: string) {
-  const opt = levelOptions.find((o) => o.value === level)
-  return opt?.label ?? level
-}
 
-function levelColor(level: string) {
-  const opt = levelOptions.find((o) => o.value === level)
-  return opt?.color ?? '#909399'
-}
 
 async function openSendDialog() {
   sendForm.value = { subject: '', body: '', level: 'warning', to_addrs: '' }

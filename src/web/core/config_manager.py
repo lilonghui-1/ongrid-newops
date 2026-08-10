@@ -3,7 +3,6 @@
 负责在运行时重新加载配置、重新注册工具、重新创建 Agent 和重启调度器。
 """
 
-import asyncio
 import logging
 from typing import Optional
 
@@ -38,7 +37,7 @@ class AppConfigManager:
         """初始化时绑定 OpsAgentApp 实例"""
         cls._app_ref = app
         inst = cls.get_instance()
-        inst.config_dir = app.config_loader.config_dir if hasattr(app.config_loader, 'config_dir') else "config"
+        inst.config_dir = str(app.config_loader.config_dir) if hasattr(app, 'config_loader') and hasattr(app.config_loader, 'config_dir') else "config"
 
     def reload_config(self) -> dict:
         """热重载配置
@@ -52,12 +51,18 @@ class AppConfigManager:
         Returns:
             dict: 包含重载结果和详细信息的字典
         """
+        if self._app_ref is None:
+            return {
+                "success": False,
+                "message": "配置热重载失败：AppConfigManager 未初始化（_app_ref 为 None）",
+                "details": {"errors": ["init_app() 未被调用"]},
+            }
+
         details = {}
         errors = []
 
         try:
-            # 1. 重新加载配置
-            ConfigLoader.reset()
+            # 1. 重新加载配置（先加载新配置，成功后再重置单例）
             new_config = ConfigLoader.get_instance().load(self.config_dir)
             logger.info("配置已重新加载")
             details["config_loaded"] = True

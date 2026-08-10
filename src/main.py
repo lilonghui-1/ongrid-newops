@@ -153,8 +153,10 @@ class OpsAgentApp:
                 loop.run_forever()
             elif mode == "web":
                 from .web.app import create_app
+                from .web.core.config_manager import AppConfigManager
                 import uvicorn
-                app = create_app(self.config)
+                AppConfigManager.init_app(self)
+                app = create_app(self)
                 uvicorn.run(app, host=self.config.web.host, port=self.config.web.port)
             else:
                 logger.error(f"未知的运行模式: {mode}")

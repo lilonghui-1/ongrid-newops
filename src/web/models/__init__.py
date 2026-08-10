@@ -8,6 +8,7 @@ from .custom_config import CustomConfig
 from .email_notify import EmailLog
 from .server_metric import ServerMetric
 from .service import AppService
+from .system_parameter import SystemParameter
 from .user import User
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "EmailLog",
     "ServerMetric",
     "AppService",
+    "SystemParameter",
 ]

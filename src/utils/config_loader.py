@@ -35,7 +35,7 @@ class ServerConfig(BaseModel):
     username: str
     password: Optional[str] = None
     private_key_path: Optional[str] = None
-    os_type: str = "linux"  # linux / windows
+    os_type: str = "linux"  # linux / windows（麒麟、统信UOS、openEuler 均为 linux）
     tags: List[str] = []
     databases: List[DatabaseConfig] = []
 
@@ -130,6 +130,9 @@ class ConfigLoader:
         if config_dir:
             self.config_dir = Path(config_dir)
 
+        # 从数据库加载系统参数到环境变量
+        self._load_db_parameters()
+
         raw: Dict[str, Any] = {}
         for yaml_file in ["config.yaml", "servers.yaml", "rules.yaml"]:
             path = self.config_dir / yaml_file
@@ -165,3 +168,24 @@ class ConfigLoader:
         elif isinstance(obj, list):
             return [self._resolve_env_vars(item) for item in obj]
         return obj
+
+    def _load_db_parameters(self):
+        """从数据库加载系统参数到环境变量
+
+        在配置加载前调用，将数据库中的参数值注入到 os.environ，
+        使后续的 ${VAR} 占位符替换能正确获取到值。
+        数据库未初始化时静默跳过。
+        """
+        try:
+            from ..web.database import SessionLocal
+            from ..web.models.system_parameter import SystemParameter
+            db = SessionLocal()
+            try:
+                params = db.query(SystemParameter).all()
+                for p in params:
+                    if p.value is not None:
+                        os.environ[p.key] = p.value
+            finally:
+                db.close()
+        except Exception:
+            pass  # 数据库未初始化或表不存在时静默跳过
