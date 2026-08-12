@@ -82,8 +82,8 @@ function categoryLabel(val: string): string {
   return categoryLabelMap[val] || val
 }
 
-function categoryTag(val: string): string {
-  const map: Record<string, string> = {
+function categoryTag(val: string): '' | 'success' | 'warning' | 'danger' | 'info' {
+  const map: Record<string, '' | 'success' | 'warning' | 'danger' | 'info'> = {
     ssh: '',
     database: 'success',
     llm: 'warning',
@@ -230,7 +230,7 @@ onMounted(async () => {
 
     <!-- 参数列表 -->
     <el-card shadow="never" class="table-card" v-loading="loading">
-      <el-table :data="params" stripe style="width: 100%" empty-text="暂无参数，点击「新增参数」添加">
+      <el-table :data="params as ParamItem[]" stripe style="width: 100%" empty-text="暂无参数，点击「新增参数」添加">
         <el-table-column prop="key" label="参数名" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
             <span style="font-family: monospace; color: #409eff">{{ row.key }}</span>
@@ -267,8 +267,8 @@ onMounted(async () => {
         </el-table-column>
         <el-table-column label="操作" width="140" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button size="small" link type="danger" @click="deleteParam(row)">删除</el-button>
+            <el-button size="small" link type="primary" @click="openEdit(row as ParamItem)">编辑</el-button>
+            <el-button size="small" link type="danger" @click="deleteParam(row as ParamItem)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>

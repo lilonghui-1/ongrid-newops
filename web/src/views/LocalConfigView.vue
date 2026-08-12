@@ -231,10 +231,10 @@ onMounted(loadConfigList)
                 </el-tag>
               </div>
               <div class="head-right">
-                <el-tag v-if="selectedFile" size="small" type="default">
+                <el-tag v-if="selectedFile" size="small" type="info">
                   大小: {{ fmtSize(selectedFile.size) }}
                 </el-tag>
-                <el-tag v-if="selectedFile" size="small" type="default">
+                <el-tag v-if="selectedFile" size="small" type="info">
                   修改时间: {{ fmtTime(selectedFile.modified_at) }}
                 </el-tag>
                 <el-button :icon="Refresh" size="small" @click="refreshFile">

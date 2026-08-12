@@ -506,7 +506,7 @@ onMounted(async () => {
                   type="primary"
                   link
                   :icon="Edit"
-                  @click="openEditDialog(row)"
+                  @click="openEditDialog(row as AppServiceDef)"
                 >
                   编辑
                 </el-button>
@@ -515,7 +515,7 @@ onMounted(async () => {
                   type="danger"
                   link
                   :icon="Delete"
-                  @click="deleteDef(row)"
+                  @click="deleteDef(row as AppServiceDef)"
                 >
                   删除
                 </el-button>

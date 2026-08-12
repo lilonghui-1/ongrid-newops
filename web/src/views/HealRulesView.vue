@@ -237,7 +237,7 @@ onMounted(() => {
 
     <!-- 自愈规则列表 -->
     <el-card shadow="never" class="table-card" v-loading="loading">
-      <el-table :data="rules" stripe style="width: 100%" empty-text="暂无自愈规则，点击「新增规则」添加">
+      <el-table :data="rules as HealRuleItem[]" stripe style="width: 100%" empty-text="暂无自愈规则，点击「新增规则」添加">
         <el-table-column prop="name" label="规则名称" min-width="160" show-overflow-tooltip>
           <template #default="{ row }">
             <span style="font-family: monospace; color: #409eff">{{ row.name }}</span>
@@ -272,11 +272,11 @@ onMounted(() => {
         </el-table-column>
         <el-table-column label="操作" width="200" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button size="small" link :type="row.enabled ? 'warning' : 'success'" @click="toggleEnabled(row)">
+            <el-button size="small" link type="primary" @click="openEdit(row as HealRuleItem)">编辑</el-button>
+            <el-button size="small" link :type="row.enabled ? 'warning' : 'success'" @click="toggleEnabled(row as HealRuleItem)">
               {{ row.enabled ? '禁用' : '启用' }}
             </el-button>
-            <el-button size="small" link type="danger" @click="deleteRule(row)">删除</el-button>
+            <el-button size="small" link type="danger" @click="deleteRule(row as HealRuleItem)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>

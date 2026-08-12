@@ -93,8 +93,8 @@ function categoryLabel(val: string): string {
   return categoryLabelMap[val] || val
 }
 
-function severityTag(val: string): string {
-  const map: Record<string, string> = {
+function severityTag(val: string): 'info' | 'warning' | 'danger' {
+  const map: Record<string, 'info' | 'warning' | 'danger'> = {
     low: 'info',
     medium: 'warning',
     high: 'danger',
@@ -250,7 +250,7 @@ onMounted(async () => {
 
     <!-- 知识条目列表 -->
     <el-card shadow="never" class="table-card" v-loading="loading">
-      <el-table :data="entries" stripe style="width: 100%" empty-text="暂无知识条目，点击「新增知识条目」添加">
+      <el-table :data="entries as KnowledgeItem[]" stripe style="width: 100%" empty-text="暂无知识条目，点击「新增知识条目」添加">
         <el-table-column prop="symptom" label="症状描述" min-width="200" show-overflow-tooltip />
         <el-table-column label="分类" width="100" align="center">
           <template #default="{ row }">
@@ -289,8 +289,8 @@ onMounted(async () => {
         </el-table-column>
         <el-table-column label="操作" width="140" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button size="small" link type="danger" @click="deleteEntry(row)">删除</el-button>
+            <el-button size="small" link type="primary" @click="openEdit(row as KnowledgeItem)">编辑</el-button>
+            <el-button size="small" link type="danger" @click="deleteEntry(row as KnowledgeItem)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
