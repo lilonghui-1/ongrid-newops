@@ -82,18 +82,18 @@ function categoryLabel(val: string): string {
   return categoryLabelMap[val] || val
 }
 
-function categoryTag(val: string): '' | 'success' | 'warning' | 'danger' | 'info' {
-  const map: Record<string, '' | 'success' | 'warning' | 'danger' | 'info'> = {
-    ssh: '',
+function categoryTag(val: string): 'success' | 'warning' | 'danger' | 'info' | undefined {
+  const map: Record<string, 'success' | 'warning' | 'danger' | 'info' | undefined> = {
+    ssh: undefined,
     database: 'success',
     llm: 'warning',
     email: 'danger',
     notify: 'info',
-    web: '',
+    web: undefined,
     log_platform: 'success',
     general: 'info',
   }
-  return map[val] || 'info'
+  return map[val] ?? 'info'
 }
 
 function fmtTime(t: string): string {
