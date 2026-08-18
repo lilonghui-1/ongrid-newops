@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Document, Refresh, Setting } from '@element-plus/icons-vue'
+import { Refresh, Setting } from '@element-plus/icons-vue'
 import { Codemirror } from 'vue-codemirror'
 import { yaml } from '@codemirror/lang-yaml'
 import type { Extension } from '@codemirror/state'
@@ -54,7 +54,7 @@ async function loadConfigList() {
     configFiles.value = Array.isArray(res.data) ? res.data : []
     if (configFiles.value.length && !selectedFileName.value) {
       const first = configFiles.value.find((f) => f.exists)
-      if (first) await selectFile(first.name)
+      if (first) await loadFileContent(first.name)
     }
   } catch {
     // 错误提示由拦截器处理
@@ -63,18 +63,8 @@ async function loadConfigList() {
   }
 }
 
-async function selectFile(name: string) {
-  if (hasUnsavedChanges.value) {
-    try {
-      await ElMessageBox.confirm(
-        '当前文件有未保存的修改，切换后将丢失，是否继续？',
-        '提示',
-        { type: 'warning', confirmButtonText: '继续', cancelButtonText: '取消' },
-      )
-    } catch {
-      return
-    }
-  }
+/** 加载指定配置文件内容（不检查未保存状态，供标签页切换使用） */
+async function loadFileContent(name: string) {
   selectedFileName.value = name
   editorLoading.value = true
   try {
@@ -91,9 +81,30 @@ async function selectFile(name: string) {
   }
 }
 
+/** 标签页切换前的未保存校验：返回 false 则阻止切换 */
+async function beforeSwitchTab(targetName: string | number): Promise<boolean> {
+  if (String(targetName) === selectedFileName.value) return true
+  if (!hasUnsavedChanges.value) return true
+  try {
+    await ElMessageBox.confirm(
+      '当前文件有未保存的修改，切换后将丢失，是否继续？',
+      '提示',
+      { type: 'warning', confirmButtonText: '继续', cancelButtonText: '取消' },
+    )
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** 标签页成功切换后加载目标文件内容 */
+async function onTabChange(name: string | number) {
+  await loadFileContent(String(name))
+}
+
 async function refreshFile() {
   if (selectedFileName.value) {
-    await selectFile(selectedFileName.value)
+    await loadFileContent(selectedFileName.value)
     ElMessage.success('已重新加载文件内容')
   } else {
     await loadConfigList()
@@ -168,118 +179,93 @@ onMounted(loadConfigList)
 
 <template>
   <div class="local-config-view">
-    <el-row :gutter="16" class="main-row">
-      <!-- 左侧面板 -->
-      <el-col :xs="24" :sm="24" :md="6" :lg="5">
-        <el-card shadow="never" class="side-card" v-loading="loading">
-          <template #header>
-            <div class="side-head">
-              <span class="card-title">本地配置文件</span>
-              <el-button
-                :icon="Refresh"
-                size="small"
-                @click="loadConfigList"
-              >
-                刷新
-              </el-button>
-            </div>
-          </template>
-          <el-empty
-            v-if="!activeConfigs.length"
-            description="暂无配置文件"
-            :image-size="60"
-          />
-          <el-menu
-            v-else
-            :default-active="selectedFileName"
-            class="config-menu"
-            @select="(key: string) => selectFile(key)"
+    <!-- 顶部工具栏 -->
+    <el-card shadow="never" class="toolbar-card">
+      <div class="toolbar-head">
+        <div class="head-left">
+          <span class="card-title">本地配置管理</span>
+          <el-tag v-if="selectedFile" size="small" type="info">
+            {{ selectedFile.name }}
+          </el-tag>
+          <el-tag v-if="hasUnsavedChanges" size="small" type="warning">
+            未保存
+          </el-tag>
+        </div>
+        <div class="head-right">
+          <el-tag v-if="selectedFile" size="small" type="info">
+            大小: {{ fmtSize(selectedFile.size) }}
+          </el-tag>
+          <el-tag v-if="selectedFile" size="small" type="info">
+            修改时间: {{ fmtTime(selectedFile.modified_at) }}
+          </el-tag>
+          <el-button :icon="Refresh" size="small" @click="refreshFile">
+            刷新
+          </el-button>
+          <el-button
+            type="primary"
+            size="small"
+            :loading="saving"
+            :disabled="!hasUnsavedChanges"
+            @click="confirmSave"
           >
-            <el-menu-item
-              v-for="f in activeConfigs"
-              :key="f.name"
-              :index="f.name"
-            >
-              <el-icon><Document /></el-icon>
-              <div class="file-info">
-                <span class="file-label">{{ f.label }}</span>
-                <span class="file-desc">{{ f.description }}</span>
-              </div>
-            </el-menu-item>
-          </el-menu>
-        </el-card>
-      </el-col>
+            保存
+          </el-button>
+          <el-button
+            type="warning"
+            size="small"
+            :icon="Setting"
+            :loading="reloading"
+            @click="triggerReload"
+          >
+            重载配置
+          </el-button>
+        </div>
+      </div>
+    </el-card>
 
-      <!-- 右侧编辑器 -->
-      <el-col :xs="24" :sm="24" :md="18" :lg="19">
-        <el-card shadow="never" class="editor-card">
-          <template #header>
-            <div class="editor-head">
-              <div class="head-left">
-                <span class="card-title">
-                  {{ selectedFile?.label || selectedFileName || '请选择配置文件' }}
-                </span>
-                <el-tag v-if="selectedFile" size="small" type="info">
-                  {{ selectedFile.name }}
-                </el-tag>
-                <el-tag
-                  v-if="hasUnsavedChanges"
-                  size="small"
-                  type="warning"
-                >
-                  未保存
-                </el-tag>
-              </div>
-              <div class="head-right">
-                <el-tag v-if="selectedFile" size="small" type="info">
-                  大小: {{ fmtSize(selectedFile.size) }}
-                </el-tag>
-                <el-tag v-if="selectedFile" size="small" type="info">
-                  修改时间: {{ fmtTime(selectedFile.modified_at) }}
-                </el-tag>
-                <el-button :icon="Refresh" size="small" @click="refreshFile">
-                  刷新
-                </el-button>
-                <el-button
-                  type="primary"
-                  size="small"
-                  :loading="saving"
-                  :disabled="!hasUnsavedChanges"
-                  @click="confirmSave"
-                >
-                  保存
-                </el-button>
-                <el-button
-                  type="warning"
-                  size="small"
-                  :icon="Setting"
-                  :loading="reloading"
-                  @click="triggerReload"
-                >
-                  重载配置
-                </el-button>
-              </div>
+    <!-- 配置切换标签页 + 编辑器 -->
+    <el-card shadow="never" class="editor-card" v-loading="loading">
+      <el-empty
+        v-if="!activeConfigs.length"
+        description="暂无配置文件"
+        :image-size="80"
+      />
+      <el-tabs
+        v-else
+        v-model="selectedFileName"
+        type="border-card"
+        :before-leave="beforeSwitchTab"
+        @tab-change="onTabChange"
+      >
+        <el-tab-pane
+          v-for="f in activeConfigs"
+          :key="f.name"
+          :name="f.name"
+          :label="f.label"
+        >
+          <template #label>
+            <div class="tab-label">
+              <span class="tab-title">{{ f.label }}</span>
+              <span class="tab-desc">{{ f.description }}</span>
             </div>
           </template>
-          <div class="editor-wrap" v-loading="editorLoading">
+          <div
+            class="editor-wrap"
+            v-if="selectedFileName === f.name"
+            v-loading="editorLoading"
+          >
             <Codemirror
-              v-if="selectedFileName"
               v-model="content"
               :extensions="extensions"
               :disabled="!selectedFileName"
-              :style="{ height: 'calc(100vh - 260px)', minHeight: '360px' }"
+              :style="{ height: 'calc(100vh - 280px)', minHeight: '360px' }"
               :indent-with-tab="true"
               :tab-size="2"
             />
-            <el-empty
-              v-else
-              description="请从左侧选择一个配置文件"
-              :image-size="80"
-            />
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
   </div>
 </template>
 
@@ -287,57 +273,18 @@ onMounted(loadConfigList)
 .local-config-view {
   display: flex;
   flex-direction: column;
-}
-
-.main-row {
-  margin: 0;
+  gap: 16px;
 }
 
 .card-title {
   font-size: 15px;
   font-weight: 600;
   color: #303133;
+  white-space: nowrap;
 }
 
-.side-card {
-  .side-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .config-menu {
-    border-right: none;
-
-    .file-info {
-      display: flex;
-      flex-direction: column;
-      margin-left: 8px;
-      overflow: hidden;
-
-      .file-label {
-        font-size: 14px;
-        font-weight: 500;
-        color: #303133;
-      }
-
-      .file-desc {
-        font-size: 11px;
-        color: #909399;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-    }
-  }
-
-  :deep(.el-card__body) {
-    padding: 12px;
-  }
-}
-
-.editor-card {
-  .editor-head {
+.toolbar-card {
+  .toolbar-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -355,6 +302,29 @@ onMounted(loadConfigList)
       align-items: center;
       gap: 8px;
       flex-wrap: wrap;
+    }
+  }
+}
+
+.editor-card {
+  :deep(.el-tabs__content) {
+    padding: 12px;
+  }
+
+  .tab-label {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.3;
+
+    .tab-title {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .tab-desc {
+      font-size: 11px;
+      color: #909399;
     }
   }
 
