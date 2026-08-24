@@ -55,6 +55,7 @@ web/src/components.d.ts
 
 # Trae / IDE artifacts
 .trae-html-share-packages/
+.trae/
 
 # Test reports / docs build output
 docs/test-manual/dist/
