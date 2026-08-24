@@ -3,10 +3,10 @@ AIGC:
   ContentProducer: '001191110102MAD55U9H0F10002'
   ContentPropagator: '001191110102MAD55U9H0F10002'
   Label: '1'
-  ProduceID: '35353912-b603-42e7-8180-17ba825ed05c'
-  PropagateID: '35353912-b603-42e7-8180-17ba825ed05c'
-  ReservedCode1: 'ce723641-5cac-4278-bb3e-1ad69943e60b'
-  ReservedCode2: 'ce723641-5cac-4278-bb3e-1ad69943e60b'
+  ProduceID: '28b23867-9d63-4cad-a12d-815bd0cc9278'
+  PropagateID: '28b23867-9d63-4cad-a12d-815bd0cc9278'
+  ReservedCode1: 'e8561490-64b6-4696-83c7-6038978dd594'
+  ReservedCode2: 'e8561490-64b6-4696-83c7-6038978dd594'
 ---
 
 # 运维 Agent 部署手册
@@ -213,18 +213,19 @@ heal_rules:
 ### 4.4 mcp.yaml — MCP Server 注册
 
 ```yaml
-servers:
+mcp_servers:
   - name: "kubernetes-mcp"
-    command: "python"
-    args: ["-m", "mcp_server_k8s"]
-    env:
-      KUBECONFIG: "${KUBECONFIG_PATH}"
+    url: "http://localhost:9001/mcp"
+    headers:
+      Authorization: "Bearer ${MCP_HTTP_TOKEN}"
     enabled: true
-  - name: "cloud-mcp"
-    url: "http://localhost:8080/mcp"
-    transport: "streamable-http"
+  - name: "monitor"
+    url: "http://monitor-mcp:9002/mcp"
+    headers: {}
     enabled: true
 ```
+
+> 注意：顶层键名为 `mcp_servers`（非 `servers`），实际仓库 `config/mcp.yaml` 中示例均使用该键名。
 
 ### 4.5 .env — 环境变量
 
@@ -321,66 +322,496 @@ server {
 
 ## 七、可观测性组件部署
 
-### 7.1 Prometheus
+可观测性组件（Prometheus、Loki、Grafana）为 Agent 提供指标查询（PromQL）、日志查询（LogQL）与可视化面板能力。仓库 `deploy/` 目录已预置全部配置文件，推荐使用 Docker Compose 一键部署。
+
+### 7.1 部署架构
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     docker-compose                      │
+│  ┌──────────┐    ┌────────────┐    ┌────────────────┐  │
+│  │  ongrid  │    │ Prometheus │    │     Loki       │  │
+│  │  -ops    │───▶│   :9090    │    │    :3100       │  │
+│  │  :8000   │    └────────────┘    └────────────────┘  │
+│  │          │         │                  │             │
+│  │          │         ▼                  ▼             │
+│  │          │    ┌────────────────┐                    │
+│  │          │    │    Grafana     │                    │
+│  │          │    │    :3000       │                    │
+│  └──────────┘    └────────────────┘                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+各组件职责：
+
+| 组件 | 端口 | 职责 | Agent 对接配置 |
+|------|------|------|---------------|
+| Prometheus | 9090 | 指标采集与 PromQL 查询 | `observability.prometheus_url` |
+| Loki | 3100 | 日志聚合与 LogQL 查询 | `observability.loki_url` / `log_platforms` |
+| Grafana | 3000 | 可视化面板与 Dashboard 跳转 | `observability.grafana_url` |
+| Node Exporter | 9100 | 目标服务器指标采集（可选） | Prometheus scrape 目标 |
+
+### 7.2 Prometheus 部署
+
+#### 7.2.1 配置文件说明
+
+仓库已提供 `deploy/prometheus/prometheus.yml`：
+
+```yaml
+# Prometheus 采集配置
+global:
+  scrape_interval: 15s          # 全局采集间隔
+  evaluation_interval: 15s      # 规则评估间隔（告警规则用）
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]   # 采集 Prometheus 自身
+
+  # ops-agent 自监控（如暴露 /metrics）
+  - job_name: "ops-agent"
+    static_configs:
+      - targets: ["ops-agent:8000"]   # Docker Compose 内网地址
+    metrics_path: /metrics
+
+  # 目标服务器 Node Exporter（按需启用）
+  # - job_name: "node"
+  #   static_configs:
+  #     - targets:
+  #         - "192.168.1.10:9100"     # 服务器 A 的 Node Exporter
+  #         - "192.168.1.20:9100"     # 服务器 B 的 Node Exporter
+```
+
+#### 7.2.2 启动 Prometheus
 
 ```bash
-# 使用 deploy/prometheus/prometheus.yml 配置
 cd deploy
 docker-compose up -d prometheus
 ```
 
-访问 `http://localhost:9090`，在 Agent 配置中设置 `prometheus_url`。
+#### 7.2.3 验证
 
-### 7.2 Loki
+1. 访问 `http://localhost:9090`，进入 Prometheus Web UI
+2. 点击 **Status → Targets**，确认 `prometheus` 与 `ops-agent` 两个 job 均为 **UP**
+3. 在 **Graph** 页输入 PromQL 验证查询，例如：
+
+```promql
+up{job="ops-agent"}
+```
+
+返回值为 `1` 表示采集正常。
+
+#### 7.2.4 Agent 对接
+
+编辑 `config/config.yaml`：
+
+```yaml
+observability:
+  prometheus_url: "${PROMETHEUS_URL}"   # 如 http://localhost:9090 或 http://prometheus:9090
+```
+
+- 本机部署填 `http://localhost:9090`
+- Docker Compose 内填 `http://prometheus:9090`（服务名）
+- 修改后触发配置热重载（Web「本地配置管理」或重启服务）
+
+#### 7.2.5 目标服务器 Node Exporter（可选）
+
+如需采集被管服务器的 CPU/内存/磁盘指标，在每台目标服务器安装 Node Exporter：
+
+```bash
+# 在目标服务器上
+wget https://github.com/prometheus/node_exporter/releases/download/v1.8.2/node_exporter-1.8.2.linux-amd64.tar.gz
+tar zxvf node_exporter-1.8.2.linux-amd64.tar.gz
+cd node_exporter-1.8.2.linux-amd64
+nohup ./node_exporter --web.listen-address=:9100 &
+
+# 验证
+curl http://localhost:9100/metrics | head
+```
+
+然后在 `prometheus.yml` 中取消 `node` job 的注释，添加目标服务器 IP，重启 Prometheus。
+
+### 7.3 Loki 部署
+
+#### 7.3.1 配置文件
+
+仓库中 `deploy/loki/loki.yaml`（单实例、文件系统存储、TSDB 索引）：
+
+```yaml
+# Loki 配置（单实例模式）
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+
+common:
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  allow_structured_metadata: true
+```
+
+#### 7.3.2 启动 Loki
 
 ```bash
 cd deploy
 docker-compose up -d loki
 ```
 
-访问 `http://localhost:3100`，在 Agent 配置中设置 `loki_url`。
+#### 7.3.3 验证
 
-### 7.3 Grafana
+1. 访问 `http://localhost:3100/ready`，返回 `ready` 表示就绪
+2. 用 LogQL 查询验证（需有日志流入）：
+
+```bash
+curl -G 'http://localhost:3100/loki/api/v1/query_range' \
+  --data-urlencode 'query={job="app"}' \
+  --data-urlencode 'start=2026-08-24T00:00:00Z' \
+  --data-urlencode 'end=2026-08-24T23:59:59Z'
+```
+
+#### 7.3.4 Agent 对接
+
+方式一：作为日志平台接入（`config/config.yaml`）：
+
+```yaml
+log_platforms:
+  - name: "loki"
+    type: "loki"
+    url: "${LOKI_URL}"            # 如 http://localhost:3100
+```
+
+方式二：作为可观测性配置接入：
+
+```yaml
+observability:
+  loki_url: "${LOKI_URL}"         # 如 http://localhost:3100
+```
+
+两种方式二选一或同时配置均可，Agent 的 LokiQueryTool 会自动发现并使用。
+
+#### 7.3.5 日志采集（Promtail / 应用直推）
+
+Loki 本身不采集日志，需要采集器推送。常见方案：
+
+- **Promtail**（官方）：部署在各服务器，读取日志文件推送至 Loki
+- **Docker 日志驱动**：`docker run --log-driver=loki` 直接推送容器日志
+- **应用直推**：应用调用 Loki Push API（`POST /loki/api/v1/push`）
+
+Promtail 示例配置（`promtail.yaml`）：
+
+```yaml
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: app-logs
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: app
+          __path__: /var/log/app/*.log
+```
+
+### 7.4 Grafana 部署
+
+#### 7.4.1 配置文件
+
+仓库 `deploy/grafana/provisioning/` 已预置数据源与 Dashboard 自动加载：
+
+**数据源**（`datasources/datasources.yml`）：
+
+```yaml
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+```
+
+**Dashboard 自动加载**（`dashboards/providers.yml`）：
+
+```yaml
+apiVersion: 1
+
+providers:
+  - name: 'ops-agent'
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards   # 将 JSON 格式 Dashboard 放入该目录
+      foldersFromFilesStructure: true
+```
+
+#### 7.4.2 启动 Grafana
 
 ```bash
 cd deploy
 docker-compose up -d grafana
 ```
 
-访问 `http://localhost:3000`（默认 admin/admin）。Dashboard provisioning 已预配置在 `deploy/grafana/provisioning/`。
+#### 7.4.3 访问与验证
 
-### 7.4 Docker Compose 全量部署
+1. 访问 `http://localhost:3000`，默认账号密码 `admin / admin123`（可通过环境变量 `GF_SECURITY_ADMIN_PASSWORD` 覆盖）
+2. 首次登录提示修改密码
+3. 进入 **Configuration → Data Sources**，确认 Prometheus 与 Loki 数据源状态为 **OK**
+4. 如需自定义 Dashboard，将 JSON 文件放入 `deploy/grafana/dashboards/` 目录，30 秒内自动加载
+
+#### 7.4.4 Agent 对接
+
+```yaml
+observability:
+  grafana_url: "${GRAFANA_URL}"     # 如 http://localhost:3000
+```
+
+配置后 Agent 的 GrafanaTool 可生成 Dashboard 跳转链接，在诊断结果中一键直达相关面板。
+
+### 7.5 Docker Compose 全量部署
 
 ```bash
 cd deploy
 docker-compose up -d
 ```
 
-包含：后端 + Prometheus + Loki + Grafana。
+启动全部服务（后端 + Prometheus + Loki + Grafana），各服务自动加入 `ops-net` 网络：
+
+| 服务 | 容器内地址 | 宿主机端口 |
+|------|-----------|-----------|
+| ongrid-ops | ongrid-ops:8000 | 8000 |
+| prometheus | prometheus:9090 | 9090 |
+| loki | loki:3100 | 3100 |
+| grafana | grafana:3000 | 3000 |
+
+查看状态：
+
+```bash
+docker-compose ps
+docker-compose logs -f ongrid-ops
+```
+
+停止服务：
+
+```bash
+docker-compose down          # 停止并删除容器（保留数据卷）
+docker-compose down -v       # 停止并删除容器与数据卷（数据清空，慎用）
+```
+
+### 7.6 常见排障
+
+| 问题 | 排查方法 |
+|------|---------|
+| Prometheus 目标 DOWN | 检查抓取地址、网络连通、Node Exporter 是否运行 |
+| Loki 查询无数据 | 检查是否有日志流入（promtail/直推）、时间范围是否正确 |
+| Grafana 数据源报错 | 容器内需用服务名 `http://prometheus:9090`，宿主机用 `localhost` |
+| 端口冲突 | 修改 `docker-compose.yml` 中宿主机端口映射 |
+| 数据丢失 | 检查数据卷 `ops_agent_data` 是否存在，勿用 `down -v` 误删 |
 
 ## 八、IM 通道与 MCP 注册
 
+本章介绍如何配置即时通讯（IM）告警/通知通道、注册外部 MCP Server、以及启停技能。系统支持**企业微信 / 钉钉 / 飞书 / Telegram / Slack** 五种 IM 渠道，全部通过 `.env` 注入密钥，配置文件中使用 `${ENV_VAR}` 占位符。
+
 ### 8.1 IM 渠道配置
 
-在 `.env` 或 `config.yaml` 的 `im_channels` 段配置各渠道 Webhook/Token（详见 4.1）。
+所有 IM 渠道的密钥统一在 `.env` 中配置（参考 `.env.example`），配置文件 `config/config.yaml` 中已声明对应占位符，无需修改。渠道分为两类：
+
+| 分类 | 配置段 | 渠道 |
+|------|--------|------|
+| 基础通知 | `notify` | 企业微信、钉钉 |
+| 即时通讯 | `im_channels` | 飞书、Telegram、Slack |
+
+#### 8.1.1 企业微信（notify.wecom_webhook）
+
+1. 登录企业微信管理后台 →「群机器人」→「添加机器人」
+2. 复制 Webhook 地址，格式：
+   ```
+   https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxxxxxx
+   ```
+3. 在 `.env` 中配置：
+   ```bash
+   WECOM_WEBHOOK=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxxxxxx
+   ```
+4. 验证：向机器人发送一条测试消息，或在 Web 平台「通知测试」中发送
+
+#### 8.1.2 钉钉（notify.dingtalk_webhook + dingtalk_secret）
+
+1. 钉钉群 →「群设置」→「智能群助手」→「添加机器人」→「自定义」
+2. 获取 Webhook，格式：
+   ```
+   https://oapi.dingtalk.com/robot/send?access_token=xxxxxxxx
+   ```
+3. 安全设置中选择「加签」，获取 `SEC` 开头的密钥
+4. 在 `.env` 中配置：
+   ```bash
+   DINGTALK_WEBHOOK=https://oapi.dingtalk.com/robot/send?access_token=xxxxxxxx
+   DINGTALK_SECRET=SECxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   ```
+5. 验证：钉钉群内发送测试消息
+
+> 若机器人安全设置选择「自定义关键词」，需确保消息文本包含该关键词。
+
+#### 8.1.3 飞书（im_channels.lark_webhook + lark_secret）
+
+1. 飞书群 →「设置」→「群机器人」→「添加机器人」→「自定义机器人」
+2. 获取 Webhook（格式 `https://open.feishu.cn/open-apis/bot/v2/hook/xxxx`）
+3. 安全设置可选「签名校验」（生成 `Secret`）
+4. 在 `.env` 中配置：
+   ```bash
+   LARK_WEBHOOK=https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxxxx
+   LARK_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx   # 可选，未开启签名可不填
+   ```
+5. 验证：飞书群内发送测试消息
+
+#### 8.1.4 Telegram（im_channels.telegram_bot_token + telegram_chat_id）
+
+1. 在 Telegram 中向 **@BotFather** 发送 `/newbot`，按提示创建 Bot，获得 `BOT_TOKEN`
+2. 与 Bot 建立会话（向你的 Bot 发送任意消息），或通过 `getUpdates` 获取 `chat_id`
+3. 在 `.env` 中配置：
+   ```bash
+   TELEGRAM_BOT_TOKEN=123456789:AAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   TELEGRAM_CHAT_ID=987654321
+   ```
+4. 验证：Bot 收到一条测试消息
+
+#### 8.1.5 Slack（im_channels.slack_webhook）
+
+1. 访问 Slack API 页面创建 Incoming Webhook（`https://api.slack.com/messaging/webhooks`）
+2. 选择目标频道，获取 Webhook（格式 `https://hooks.slack.com/services/xxx/yyy/zzz`）
+3. 在 `.env` 中配置：
+   ```bash
+   SLACK_WEBHOOK=https://hooks.slack.com/services/xxxx/yyyy/zzzz
+   ```
+4. 验证：指定频道收到测试消息
+
+#### 8.1.6 邮件（email 段）
+
+在 `.env` 中配置 SMTP：
+
+```bash
+SMTP_HOST=smtp.example.com
+SMTP_PORT=465
+SMTP_USER=alerts@example.com
+SMTP_PASSWORD=xxxxxxxx
+SMTP_FROM=alerts@example.com
+ALERT_EMAIL=ops@example.com
+```
+
+配置后重启服务使配置生效（`sudo systemctl restart ongrid-ops`）。发送告警时，系统会自动选择合适的已配置渠道。
 
 ### 8.2 MCP Server 注册
 
-编辑 `config/mcp.yaml`，添加外部 MCP Server（详见 4.4）。MCP 工具自动注册进 ToolRegistry，供 Agent 调用。
+MCP（Model Context Protocol）允许 Agent 通过标准 **Streamable HTTP** 协议调用外部工具服务器。配置位于 `config/mcp.yaml`，顶层键为 `mcp_servers`：
+
+```yaml
+mcp_servers:
+  - name: "http-tools"
+    url: "http://localhost:9001/mcp"
+    headers:
+      Authorization: "Bearer ${MCP_HTTP_TOKEN}"
+    enabled: true
+  - name: "monitor"
+    url: "http://monitor-mcp:9002/mcp"
+    headers: {}
+    enabled: true
+```
+
+字段说明：
+
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| name | 是 | 唯一名称，展示在 Web「MCP 管理」页面 |
+| url | 是 | MCP Server 的 Streamable HTTP 端点 |
+| headers | 否 | 额外 HTTP 请求头，用于鉴权（如 `Authorization: Bearer ...`） |
+| enabled | 否 | 是否启用，默认 `true` |
+
+配置步骤：
+
+1. 编辑 `config/mcp.yaml`，取消示例注释或新增条目（注意键名是 `mcp_servers`，不是 `servers`）
+2. 将请求头中的密钥放入 `.env`：
+   ```bash
+   MCP_HTTP_TOKEN=xxxxxxxx
+   ```
+3. 保存后重启服务，或触发配置热重载
+
+验证与排错：
+
+- 在 Web「MCP 管理」页面确认新增 Server 出现在列表中，且工具列表已加载
+- 调用测试：在 AI 对话中让 Agent 调用该 MCP 工具，观察返回
+- 排错：
+  - 工具不可用：检查 URL 是否可访问、服务是否启动
+  - 认证失败：检查 `headers` 中 Token 是否正确、.env 是否已加载
+  - 连接超时：确认网络连通性（容器内互访用服务名，跨主机用 IP）
+
+MCP 工具注册后自动进入 ToolRegistry，供 Agent 在诊断/自愈流程中调用。
 
 ### 8.3 技能启用/停用
 
-编辑 `config/skills.yaml`：
+技能定义位于 `skills/<技能名>/SKILL.md`（frontmatter + 正文）。全局开关与禁用列表在 `config/skills.yaml`：
 
 ```yaml
 skills:
-  - name: "ssh-readonly"
-    enabled: true
-  - name: "restart-service"
-    enabled: true
-  - name: "bash"
-    enabled: false   # 停用本地命令技能
+  dir: "skills"
+  enabled: true
+  disabled: []          # 在此处添加需要停用的技能名
 ```
+
+- `dir`：技能目录路径（相对项目根目录）
+- `enabled`：技能系统总开关（`false` 时全部技能停用）
+- `disabled`：需要单独停用的技能名列表
+
+配置示例：
+
+```yaml
+skills:
+  dir: "skills"
+  enabled: true
+  disabled:
+    - "bash"              # 停用本地命令技能
+    - "restart-service"   # 停用服务重启技能
+```
+
+停止技能后，该技能的工具将从 ToolRegistry 中移除，Agent 将无法调用。修改后重启服务生效。
+
+> 注意：`disabled` 列表中配置的技能需要与 `skills/` 目录下的实际技能名保持一致。
 
 ## 九、安全加固
 
