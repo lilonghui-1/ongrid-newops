@@ -1,0 +1,36 @@
+# ============================================
+# 触发规则配置（声明式触发：条件 → 动作）
+# 设计参考 ongrid 的 trigger/action 概念，本实现为全新定义
+# 每条规则独立评估，命中后按 severity 排序执行
+# ============================================
+
+triggers:
+  - name: "high-cpu-trigger"
+    description: "CPU 使用率超过阈值时触发诊断"
+    condition: "metrics.cpu_usage > 80"
+    severity: "warning"
+    actions:
+      - agent: "diagnose"
+        params:
+          context: "CPU 使用率异常"
+    enabled: true
+
+  - name: "disk-full-trigger"
+    description: "磁盘使用率超过 90% 时触发告警"
+    condition: "metrics.disk_usage > 90"
+    severity: "critical"
+    actions:
+      - notify:
+          channel: "all"
+          title: "磁盘使用率告警"
+    enabled: true
+
+  - name: "service-down-trigger"
+    description: "核心服务不可用触发自愈流程"
+    condition: "service.status == 'down'"
+    severity: "critical"
+    actions:
+      - agent: "heal"
+        params:
+          context: "核心服务不可用"
+    enabled: true

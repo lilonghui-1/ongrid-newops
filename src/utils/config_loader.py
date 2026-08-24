@@ -41,9 +41,19 @@ class ServerConfig(BaseModel):
 
 
 class NotifyConfig(BaseModel):
-    """通知配置"""
+    """通知配置（企微/钉钉）"""
     wecom_webhook: Optional[str] = None
     dingtalk_webhook: Optional[str] = None
+    dingtalk_secret: Optional[str] = None
+
+
+class IMConfig(BaseModel):
+    """即时通讯通知配置（飞书/Telegram/Slack，融合 ongrid notify 概念）"""
+    lark_webhook: Optional[str] = None
+    lark_secret: Optional[str] = None
+    telegram_bot_token: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
+    slack_webhook: Optional[str] = None
 
 
 class ScheduleConfig(BaseModel):
@@ -80,6 +90,30 @@ class WebConfig(BaseModel):
     default_password: str = "admin123"
 
 
+class ObservabilityConfig(BaseModel):
+    """可观测性配置（Prometheus/Loki/Grafana）"""
+    prometheus_url: Optional[str] = None
+    loki_url: Optional[str] = None
+    grafana_url: Optional[str] = None
+
+
+class TopologyConfig(BaseModel):
+    """拓扑配置"""
+    yaml_path: str = "knowledge/topology.yaml"
+
+
+class MCPConfig(BaseModel):
+    """MCP 客户端配置"""
+    config_path: str = "config/mcp.yaml"
+    enabled: bool = True
+
+
+class SkillsConfig(BaseModel):
+    """技能目录配置"""
+    dir: str = "skills"
+    enabled: bool = True
+
+
 class EmailConfig(BaseModel):
     """邮件通知配置"""
     smtp_host: Optional[str] = None
@@ -102,6 +136,11 @@ class AppConfig(BaseModel):
     llm_models: List[LLMModelConfig] = []    # 新增：多模型配置
     web: WebConfig = WebConfig()             # 新增：Web 配置
     thresholds: dict = {"cpu": 80, "memory": 85, "disk": 90}  # 新增：告警阈值
+    im_channels: IMConfig = IMConfig()       # 新增：IM 多渠道通知
+    observability: ObservabilityConfig = ObservabilityConfig()  # 新增：可观测性
+    topology: TopologyConfig = TopologyConfig()                # 新增：拓扑/RCA
+    mcp: MCPConfig = MCPConfig()             # 新增：MCP 客户端
+    skills: SkillsConfig = SkillsConfig()    # 新增：技能目录
 
 
 class ConfigLoader:

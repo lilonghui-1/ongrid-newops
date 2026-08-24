@@ -61,7 +61,7 @@ entries:
     solutions:
       - 增加连接数
     severity: critical
-""")
+""", encoding="utf-8")
 
         kb = KnowledgeBase(knowledge_dir=str(tmp_path))
         assert len(kb.entries) == 2
@@ -91,7 +91,7 @@ entries:
     solutions:
       - 添加索引
     severity: medium
-""")
+""", encoding="utf-8")
 
         kb = KnowledgeBase(knowledge_dir=str(tmp_path))
 
@@ -120,7 +120,7 @@ entries:
     possible_causes: [慢查询]
     diagnosis_steps: [EXPLAIN]
     solutions: [优化]
-""")
+""", encoding="utf-8")
 
         kb = KnowledgeBase(knowledge_dir=str(tmp_path))
 
@@ -149,7 +149,7 @@ entries:
     possible_causes: [电源问题]
     diagnosis_steps: [检查频率]
     solutions: [更换电源]
-""")
+""", encoding="utf-8")
 
         kb = KnowledgeBase(knowledge_dir=str(tmp_path))
         results = kb.search("CPU", limit=2)
@@ -166,7 +166,7 @@ entries:
     diagnosis_steps: [检查进程内存]
     solutions: [重启服务]
     severity: high
-""")
+""", encoding="utf-8")
 
         kb = KnowledgeBase(knowledge_dir=str(tmp_path))
         context = kb.get_context_for_agent("内存泄漏")
@@ -200,7 +200,7 @@ entries:
     possible_causes: [g]
     diagnosis_steps: [h]
     solutions: [i]
-""")
+""", encoding="utf-8")
 
         kb = KnowledgeBase(knowledge_dir=str(tmp_path))
         categories = kb.get_all_categories()

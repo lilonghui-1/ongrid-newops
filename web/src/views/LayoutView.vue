@@ -26,6 +26,9 @@ const menus: MenuItem[] = [
   { index: '/alerts', title: '告警管理', icon: 'WarningFilled' },
   { index: '/knowledge', title: '知识库管理', icon: 'Reading' },
   { index: '/heal-rules', title: '自愈规则管理', icon: 'Setting' },
+  { index: '/skills', title: '技能目录', icon: 'Collection' },
+  { index: '/mcp', title: 'MCP 工具', icon: 'Connection' },
+  { index: '/topology', title: '拓扑管理', icon: 'Share' },
   { index: '/chat', title: 'AI 对话', icon: 'ChatLineRound' },
   { index: '/audit', title: '审计日志', icon: 'Tickets' },
 ]

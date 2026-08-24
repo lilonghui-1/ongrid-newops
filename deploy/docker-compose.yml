@@ -1,0 +1,73 @@
+services:
+  # 运维 Agent 主服务
+  ops-agent:
+    build: .
+    container_name: ongrid-ops
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - PROMETHEUS_URL=http://prometheus:9090
+      - LOKI_URL=http://loki:3100
+      - GRAFANA_URL=http://grafana:3000
+    volumes:
+      - ./config:/app/config:ro
+      - ./knowledge:/app/knowledge:ro
+      - ./agents:/app/agents:ro
+      - ./skills:/app/skills:ro
+      - ops_agent_data:/app/data
+    depends_on:
+      - prometheus
+      - loki
+      - grafana
+    networks:
+      - ops-net
+
+  # Prometheus 指标采集
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - ops-net
+
+  # Loki 日志聚合
+  loki:
+    image: grafana/loki:3.1.0
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./deploy/loki/loki.yaml:/etc/loki/local-config.yaml:ro
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - ops-net
+
+  # Grafana 可视化
+  grafana:
+    image: grafana/grafana:11.1.0
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-admin123}"
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+      - loki
+    networks:
+      - ops-net
+
+volumes:
+  ops_agent_data:
+
+networks:
+  ops-net:
+    driver: bridge

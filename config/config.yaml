@@ -14,6 +14,35 @@ llm:
 notify:
   wecom_webhook: "${WECOM_WEBHOOK}"       # 企业微信机器人 Webhook
   dingtalk_webhook: "${DINGTALK_WEBHOOK}"  # 钉钉机器人 Webhook
+  dingtalk_secret: "${DINGTALK_SECRET}"    # 钉钉加签密钥（可选）
+
+# 即时通讯多渠道通知（融合 ongrid notify 能力）
+im_channels:
+  lark_webhook: "${LARK_WEBHOOK}"              # 飞书自定义机器人 Webhook
+  lark_secret: "${LARK_SECRET}"                # 飞书加签密钥（可选）
+  telegram_bot_token: "${TELEGRAM_BOT_TOKEN}"  # Telegram Bot Token
+  telegram_chat_id: "${TELEGRAM_CHAT_ID}"      # Telegram 接收 Chat ID
+  slack_webhook: "${SLACK_WEBHOOK}"            # Slack Incoming Webhook
+
+# 可观测性配置（Prometheus/Loki/Grafana）
+observability:
+  prometheus_url: "${PROMETHEUS_URL}"   # 如 http://localhost:9090
+  loki_url: "${LOKI_URL}"               # 如 http://localhost:3100
+  grafana_url: "${GRAFANA_URL}"         # 如 http://localhost:3000
+
+# 拓扑/RCA 配置
+topology:
+  yaml_path: "knowledge/topology.yaml"  # 拓扑文件路径（相对项目根目录）
+
+# 技能目录配置
+skills:
+  dir: "skills"
+  enabled: true
+
+# MCP 客户端配置
+mcp:
+  config_path: "config/mcp.yaml"
+  enabled: true
 
 # 日志级别: DEBUG / INFO / WARNING / ERROR
 log_level: "INFO"

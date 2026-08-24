@@ -1,0 +1,41 @@
+# NOTICE
+
+## ongrid-ops 融合说明
+
+ongrid-ops 是基于 lilonghui-1/ops-agent（分支 trae/agent-sQ6GOz，MIT 意图自研基线）
+融合 ongrid 先进能力的新一代运维 AI Agent。
+
+### 第三方组件与许可证
+
+| 组件 | 来源 | 许可证 | 引入方式 |
+|---|---|---|---|
+| ops-agent 基线 | lilonghui-1/ops-agent（trae/agent-sQ6GOz, sha 67b24d4） | 见仓库自身声明 | 融合底座（Python 自研代码） |
+| ongrid | ongridio/ongrid（main, sha e1f17a0） | **AGPL-3.0** | git submodule 挂载于 `reference/ongrid`，仅作参考，不参与编译 |
+
+### ongrid（AGPL-3.0）能力吸收清单
+
+本项目**吸收 ongrid 的设计概念**并以 Python 全新实现，**未逐字拷贝 ongrid 源码或文档文本**。
+以下能力均以「概念参考 → Python 重写」的方式落地：
+
+| 能力域 | ongrid 参考模块 | 本项目实现 | 实现方式 |
+|---|---|---|---|
+| 声明式 Agent | agents/*.md | `agents/*.md` + `src/agents_loader.py` | 概念与文件格式参考，正文为中文原创重写 |
+| 技能目录 | skills/*/SKILL.md | `skills/` + `src/skills/` | 概念参考，运行时为全新 Python 实现 |
+| MCP 客户端 | internal/pkg/mcpclient | `src/mcp/client.py` | 协议思路参考，基于官方 `mcp` SDK 全新实现 |
+| 可观测性 | internal/pkg/{promquery,logquery,grafana} | `src/tools/observability_tools.py` | 概念参考，httpx 全新实现 |
+| 多渠道通知 | internal/pkg/notify | `src/tools/notify_tools.py` 扩展 | 概念参考，保留原企微/钉钉实现并扩展 |
+| 拓扑/RCA | internal/manager/service/edge + expand_topology | `src/knowledge/topology.py` | 图模型与 BFS 概念参考，networkx 全新实现 |
+| 命令安全策略 | internal/edgeagent/{bash,cmdpolicy} | `src/tools/ssh_tools.py` CommandPolicy | 分类/denylist 概念参考，全新实现 |
+
+## 许可证边界
+
+- 本项目**自研代码**（`src/`、`web/`、`agents/`、`skills/`、`config/`、`deploy/`、`docs/` 等）以
+  **MIT License** 发布，见 `LICENSE`。
+- `reference/ongrid` submodule 内代码仍属 ongrid 项目，遵循其 **AGPL-3.0** 许可证；
+  本仓库以 gitlink 引用该 submodule，不将其代码并入本仓库编译产物。
+- 使用方如需修改或分发 `reference/ongrid` 中的代码，请自行遵守 AGPL-3.0 条款。
+
+## 致谢
+
+- 融合底座：lilonghui-1/ops-agent
+- 能力参考：ongridio/ongrid（AGPL-3.0）

@@ -100,6 +100,24 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '自愈规则管理' },
       },
       {
+        path: 'skills',
+        name: 'Skills',
+        component: () => import('@/views/SkillsView.vue'),
+        meta: { title: '技能目录' },
+      },
+      {
+        path: 'mcp',
+        name: 'Mcp',
+        component: () => import('@/views/McpView.vue'),
+        meta: { title: 'MCP 工具' },
+      },
+      {
+        path: 'topology',
+        name: 'Topology',
+        component: () => import('@/views/TopologyView.vue'),
+        meta: { title: '拓扑管理' },
+      },
+      {
         path: 'audit',
         name: 'Audit',
         component: () => import('@/views/AuditView.vue'),

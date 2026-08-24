@@ -1,281 +1,86 @@
-# 运维 Agent (Ops Agent)
+---
+AIGC:
+  ContentProducer: '001191110102MAD55U9H0F10002'
+  ContentPropagator: '001191110102MAD55U9H0F10002'
+  Label: '1'
+  ProduceID: '107722cb-13de-403f-a1ae-e4c803bcb302'
+  PropagateID: '107722cb-13de-403f-a1ae-e4c803bcb302'
+  ReservedCode1: '5ce75b07-7439-4a55-ad28-e95e564c3de9'
+  ReservedCode2: '5ce75b07-7439-4a55-ad28-e95e564c3de9'
+---
 
-基于 LLM 的智能运维 Agent，实现服务器/数据库巡检、故障自动诊断、日志分析、简单问题自愈处理。
+# ongrid-ops
 
-## 架构设计
-
-```
-用户/定时任务/API
-       |
-  Master Agent (任务理解、分解、调度)
-       |
-  ┌────┼────────┬────────┐
-  |    |        |        |
-巡检  诊断    日志     自愈
-Agent Agent  Agent   Agent
-  |    |        |        |
-  └────┴────────┴────────┘
-       |
-  Tool Layer (标准化工具接口)
-       |
-  SSH / DB / System / Notify
-```
+新一代运维智能 Agent，以 Python 版 `ops-agent` 为底座，融合 ongrid 的声明式 Agent、
+技能目录、MCP、可观测性、多渠道通知、拓扑/RCA 与命令安全等能力。
 
 ## 功能特性
 
-- **服务器巡检**：CPU、内存、磁盘、网络指标采集，关键服务状态检查
-- **数据库巡检**：MySQL/PostgreSQL 连接数、慢查询、主从状态；Redis 内存、命中率
-- **故障诊断**：基于 LLM 的多维度关联分析（指标 + 日志 + 知识库）
-- **日志分析**：远程日志获取、错误模式识别、异常频率统计、时间分布分析
-- **自愈处理**：预定义规则驱动的安全自愈（重启服务、清理磁盘等）
-- **智能调度**：巡检异常→自动诊断→需要时自愈的完整链路
-- **定时任务**：可配置的 cron 定时巡检和日志分析
-- **告警通知**：企业微信/钉钉 Webhook 告警
+- **智能调度**：Master Agent 统一调度，支持巡检 / 诊断 / 日志 / 自愈 / 复合任务，自动路由
+  **声明式 Agent**（`agents/*.md` + `src/agents_loader.py`）执行。
+- **技能目录**：`skills/*/SKILL.md` 声明式注册，`src/skills/` 运行时（manifest/loader/registry/
+  executor）执行，自动注册进 `ToolRegistry`。
+- **MCP 接入**：官方 `mcp` SDK 客户端，`config/mcp.yaml` 配置，tools 包装进 `ToolRegistry`。
+- **可观测性**：Prometheus（PromQL）/ Loki（LogQL）/ Grafana 转跳，httpx 实现。
+- **多渠道通知**：企微 / 钉钉 / 飞书 / Telegram / Slack / 邮件，统一 `Notifier` 抽象。
+- **拓扑 / RCA**：`TopologyGraph`（节点/边/类型/依赖方向）+ `expand_topology`、`find_topology_node`，
+  诊断链路接入影响面相关性。
+- **命令安全**：`CommandPolicy` 只读沙箱（denylist、禁写/重定向、stdout 上限、超时）。
+- **Web 管理平台**：FastAPI + Vue3，覆盖服务器 / 服务 / 告警 / 审计 / 对话 / 自愈规则 / 知识库 /
+  日志 / 配置 / 参数 / 技能 / MCP / 拓扑。
+- **自愈与审批**：自愈动作走 reviewer 门槛（`confirm_required`），定时任务 + 告警通知。
 
 ## 技术栈
 
 | 组件 | 选型 |
-|------|------|
+|---|---|
 | Agent 框架 | LangGraph + LangChain |
-| LLM | ChatOpenAI（兼容 OpenAI/Qwen/DeepSeek/vLLM） |
-| SSH | Paramiko（连接池） |
-| 数据库 | SQLAlchemy + redis-py |
-| 调度 | APScheduler 3.10.x |
-| 配置 | PyYAML + Pydantic |
-| 通知 | httpx + tenacity |
+| LLM | ChatOpenAI（兼容 OpenAI/Qwen/DeepSeek/vLLM/Ollama） |
+| Web | FastAPI + Vue3 + Element Plus |
+| 存储 | SQLAlchemy（SQLite）+ Redis |
+| 调度 | APScheduler |
+| 可观测性 | Prometheus / Loki / Grafana |
+| MCP | 官方 mcp SDK（Streamable HTTP） |
 
 ## 快速开始
 
-### 1. 环境准备
-
 ```bash
-# Python 3.11+
-python --version
+# 1. 克隆（含 ongrid submodule）
+git clone --recurse-submodules https://github.com/lilonghui-1/ongrid-ops.git
+cd ongrid-ops
 
-# 安装依赖
+# 2. 后端
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-### 2. 配置
-
-复制并编辑配置文件：
-
-```bash
-# 编辑主配置
-vim config/config.yaml
-
-# 编辑服务器列表
-vim config/servers.yaml
-
-# 编辑自愈规则
-vim config/rules.yaml
-```
-
-#### 环境变量
-
-```bash
-# LLM 配置（必填）
-export OPENAI_API_KEY="your-api-key"
-export OPENAI_BASE_URL="https://api.openai.com/v1"  # 或本地模型地址
-
-# SSH 配置
-export SSH_PRIVATE_KEY_PATH="/path/to/private/key"
-
-# 数据库配置
-export MYSQL_PASSWORD="your-mysql-password"
-export PG_PASSWORD="your-pg-password"
-export REDIS_PASSWORD="your-redis-password"
-
-# 通知配置（可选）
-export WECOM_WEBHOOK="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"
-export DINGTALK_WEBHOOK="https://oapi.dingtalk.com/robot/send?access_token=xxx"
-```
-
-### 3. 启动
-
-```bash
-# CLI 交互模式
+cp .env.example .env                                # 按需填写密钥
 python -m src.main
 
-# 守护进程模式（定时任务）
-python -m src.main --mode daemon
-
-# 单次执行任务
-python -m src.main --task "巡检所有服务器"
-python -m src.main --task "诊断 192.168.1.10 的 CPU 异常"
-python -m src.main --task "分析 nginx 错误日志"
+# 3. 前端（可选，Web 管理）
+cd web && npm install && npm run build
 ```
 
-## 配置说明
-
-### config.yaml - 主配置
-
-```yaml
-llm:
-  provider: "openai"           # openai / qwen / deepseek
-  api_key: "${OPENAI_API_KEY}"
-  base_url: "${OPENAI_BASE_URL}"
-  model: "gpt-4"
-  temperature: 0.1
-  max_tokens: 4096
-
-notify:
-  wecom_webhook: "${WECOM_WEBHOOK}"
-  dingtalk_webhook: "${DINGTALK_WEBHOOK}"
-
-log_level: "INFO"
-
-schedule:
-  inspection:
-    cron: "0 */6 * * *"       # 每6小时巡检
-    enabled: true
-  log_analysis:
-    cron: "0 */2 * * *"       # 每2小时分析日志
-    enabled: true
-```
-
-### servers.yaml - 服务器配置
-
-```yaml
-servers:
-  - name: "web-server-01"
-    host: "192.168.1.10"
-    port: 22
-    username: "ops"
-    private_key_path: "${SSH_PRIVATE_KEY_PATH}"
-    tags: ["web", "production"]
-    databases:
-      - type: "mysql"
-        host: "127.0.0.1"
-        port: 3306
-        username: "monitor"
-        password: "${MYSQL_PASSWORD}"
-        name: "app_db"
-```
-
-### rules.yaml - 自愈规则
-
-```yaml
-heal_rules:
-  - name: "restart_nginx"
-    condition: "nginx_status == 'stopped'"
-    actions:
-      - tool: "service_control"
-        params:
-          service_name: "nginx"
-          action: "restart"
-        confirm_required: false    # 低风险，自动执行
-    description: "Nginx 停止时自动重启"
-
-  - name: "clean_disk"
-    condition: "disk_usage_percent > 90"
-    actions:
-      - tool: "ssh_execute"
-        params:
-          command: "sudo apt-get clean"
-        confirm_required: true     # 高风险，需确认
-    description: "磁盘使用率超过90%时清理"
-```
-
-## CLI 命令
-
-在交互模式中可使用以下命令：
-
-| 命令 | 说明 |
-|------|------|
-| `help` | 显示帮助信息 |
-| `tools` | 查看已注册的工具 |
-| `servers` | 查看已配置的服务器 |
-| `jobs` | 查看定时任务 |
-| `quit` | 退出程序 |
-
-## 任务示例
+## 仓库结构
 
 ```
-🤖 > 巡检服务器 192.168.1.10
-🤖 > 对所有服务器进行完整巡检
-🤖 > 诊断数据库连接异常
-🤖 > 分析 192.168.1.10 的 nginx 错误日志
-🤖 > 检查 Redis 内存使用情况
-🤖 > MySQL 慢查询数量异常，请诊断原因
+src/                 # Python 后端（agent/tools/knowledge/mcp/skills/web）
+agents/              # 声明式 Agent 定义（*.md）
+skills/              # 技能目录（SKILL.md）
+web/                 # Vue3 前端
+config/              # 配置文件（config/servers/rules/skills/mcp/triggers）
+knowledge/           # 知识库 YAML
+deploy/              # 部署资产（docker-compose/prometheus/loki/grafana/systemd）
+docs/                # 操作手册 / 部署手册（docx）
+reference/ongrid/    # ongrid 参考 submodule（AGPL-3.0，不参与编译）
 ```
 
-## 开发指南
+## 许可证
 
-### 添加新工具
+- 本项目代码：MIT License（`LICENSE`）
+- ongrid submodule（`reference/ongrid`）：AGPL-3.0，仅作能力参考，不参与编译（详见 `NOTICE`）
 
-1. 在 `src/tools/` 下创建新文件
-2. 继承 `BaseTool`，实现 `execute()` 方法
-3. 在 `src/tools/__init__.py` 中注册
+## 相关链接
 
-```python
-from .base import BaseTool, ToolResult, ToolParameter
+- 底座：[lilonghui-1/ops-agent](https://github.com/lilonghui-1/ops-agent)（分支 trae/agent-sQ6GOz）
+- 能力参考：[ongridio/ongrid](https://github.com/ongridio/ongrid)（AGPL-3.0）
 
-class MyTool(BaseTool):
-    name = "my_tool"
-    description = "我的工具"
-    parameters = [
-        ToolParameter(name="param1", type="string", description="参数1"),
-    ]
-
-    def execute(self, **kwargs) -> ToolResult:
-        # 实现工具逻辑
-        return ToolResult(success=True, data={"result": "ok"})
-```
-
-### 添加新 Agent
-
-1. 在 `src/agent/` 下创建新文件
-2. 使用 `create_react_agent` 创建 ReAct Agent
-3. 在 `MasterAgent` 中注册并添加路由
-
-### 扩展知识库
-
-在 `knowledge/` 目录下添加 YAML 文件：
-
-```yaml
-entries:
-  - category: network
-    symptom: DNS 解析失败
-    possible_causes:
-      - DNS 服务器故障
-      - 网络配置错误
-    diagnosis_steps:
-      - nslookup 测试
-      - 检查 /etc/resolv.conf
-    solutions:
-      - 更换 DNS 服务器
-      - 修复网络配置
-    severity: high
-```
-
-## 项目结构
-
-```
-ops-agent/
-├── config/          # 配置文件
-├── src/
-│   ├── agent/       # Agent 实现
-│   ├── tools/       # 工具层
-│   ├── models/      # LLM 和 Prompt
-│   ├── knowledge/   # 知识库
-│   ├── utils/       # 工具函数
-│   ├── main.py      # 入口
-│   └── scheduler.py # 调度器
-├── knowledge/       # 知识库数据
-├── tests/           # 测试
-├── requirements.txt
-└── README.md
-```
-
-## 安全说明
-
-- 数据库工具仅允许只读查询（SELECT/SHOW/DESCRIBE/EXPLAIN）
-- 自愈操作严格遵循预定义规则，高风险操作需确认
-- 敏感信息通过环境变量注入，不硬编码
-- SSH 优先使用密钥认证
-- 所有操作记录审计日志
-
-## License
-
-MIT
+> AI生成

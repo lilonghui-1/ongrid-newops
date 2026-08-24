@@ -117,7 +117,7 @@ class TestMasterAgent:
             config.servers = []
 
             agent = MasterAgent(config)
-            task_type = await agent._analyze_task("巡检所有服务器")
+            task_type = await agent._analyze_task("巡检所有机器的运行状态")
             assert task_type == "inspect"
 
     def test_need_diagnosis(self):

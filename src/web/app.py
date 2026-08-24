@@ -51,6 +51,9 @@ def create_app(app_instance) -> FastAPI:
     from .api.parameters import router as parameters_router
     from .api.knowledge import router as knowledge_router
     from .api.heal_rules import router as heal_rules_router
+    from .api.skills import router as skills_router
+    from .api.mcp import router as mcp_router
+    from .api.topology import router as topology_router
     from .websocket.log_stream import router as ws_log_router
     from .websocket.server_monitor import router as ws_monitor_router
 
@@ -66,6 +69,9 @@ def create_app(app_instance) -> FastAPI:
     app.include_router(audit_router, prefix="/api/audit", tags=["审计日志"])
     app.include_router(knowledge_router, prefix="/api/knowledge", tags=["知识库管理"])
     app.include_router(heal_rules_router, prefix="/api/heal-rules", tags=["自愈规则管理"])
+    app.include_router(skills_router, prefix="/api/skills", tags=["技能目录"])
+    app.include_router(mcp_router, prefix="/api/mcp", tags=["MCP 工具"])
+    app.include_router(topology_router, prefix="/api/topology", tags=["拓扑管理"])
     app.include_router(ws_log_router, prefix="/ws", tags=["WebSocket"])
     app.include_router(ws_monitor_router, prefix="/ws", tags=["WebSocket"])
 

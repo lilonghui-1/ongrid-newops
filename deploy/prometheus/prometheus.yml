@@ -1,0 +1,22 @@
+# Prometheus 采集配置
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # ops-agent 自监控（如暴露 /metrics）
+  - job_name: "ops-agent"
+    static_configs:
+      - targets: ["ops-agent:8000"]
+    metrics_path: /metrics
+
+  # 目标服务器 Node Exporter（按需启用）
+  # - job_name: "node"
+  #   static_configs:
+  #     - targets:
+  #         - "192.168.1.10:9100"
+  #         - "192.168.1.20:9100"

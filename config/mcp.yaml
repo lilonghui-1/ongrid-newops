@@ -1,0 +1,19 @@
+# ============================================
+# MCP (Model Context Protocol) 客户端配置
+# 通过标准 MCP Streamable HTTP 协议接入外部工具服务器
+# 设计参考 ongrid 的 MCP 客户端概念，本配置为全新实现
+# ============================================
+
+mcp_servers:
+  # 示例：接入一个提供 http 查询能力的 MCP server
+  # - name: "http-tools"
+  #   url: "http://localhost:9001/mcp"
+  #   headers:
+  #     Authorization: "Bearer ${MCP_HTTP_TOKEN}"
+  #   enabled: true
+
+  # 示例：接入私有部署的监控 MCP server
+  # - name: "monitor"
+  #   url: "http://monitor-mcp:9002/mcp"
+  #   headers: {}
+  #   enabled: true

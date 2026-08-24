@@ -33,20 +33,35 @@ data/
 *.db
 *.sqlite3
 
-# Config secrets (keep template, ignore real secrets)
-# config/config.yaml  # keep tracked for now
+# Secrets (never commit real credentials)
+.env
+.env.*
+!.env.example
+config/config.local.yaml
+web/.env
+web/.env.local
+web/.env.*.local
 
 # Node
 node_modules/
 web/dist/
-web/.env.local
-web/.env.*.local
+web/node_modules/
+frontend/node_modules/
 
 # Auto-generated
 src/auto-imports.d.ts
 web/src/auto-imports.d.ts
 web/src/components.d.ts
 
+# Trae / IDE artifacts
+.trae-html-share-packages/
+
+# Test reports / docs build output
+docs/test-manual/dist/
+docs/*.pdf
+
 # Misc
 *.bak
 *.tmp
+*.orig
+.temp/
