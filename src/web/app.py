@@ -91,6 +91,10 @@ def create_app(app_instance) -> FastAPI:
     _create_default_admin(config)
     _init_builtin_roles()
 
+    # 启动飞书长连接（后台线程，如配置了 use_ws 且有 app_id/app_secret）
+    from .api.feishu_ws import start_in_background as _start_feishu_ws
+    _start_feishu_ws()
+
     # 挂载前端静态资源（必须在所有 API 路由之后）
     dist = Path(__file__).resolve().parents[2] / "web" / "dist"
     if dist.exists():
