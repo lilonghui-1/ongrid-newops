@@ -92,7 +92,7 @@ function openCreate() {
   dialogVisible.value = true
 }
 
-function openEdit(row: UserItem) {
+function openEdit(row: any) {
   isEdit.value = true
   dialogTitle.value = '编辑用户'
   form.id = row.id
@@ -133,7 +133,7 @@ async function handleSubmit() {
 }
 
 /* ── 启用/停用 ── */
-async function handleToggle(row: UserItem) {
+async function handleToggle(row: any) {
   const action = row.is_active ? '停用' : '启用'
   try {
     await ElMessageBox.confirm(
@@ -158,7 +158,7 @@ const pwdForm = reactive({
   new_password: '',
 })
 
-function openResetPwd(row: UserItem) {
+function openResetPwd(row: any) {
   pwdForm.id = row.id
   pwdForm.username = row.username
   pwdForm.new_password = ''
@@ -257,7 +257,7 @@ defineExpose({ openMyPwd })
         </template>
       </el-table-column>
       <el-table-column label="操作" width="220" fixed="right">
-        <template #default="{ row }: { row: UserItem }">
+        <template #default="{ row }">
           <el-button link type="primary" :icon="Edit" @click="openEdit(row)">编辑</el-button>
           <el-button link :type="row.is_active ? 'warning' : 'success'" @click="handleToggle(row)">
             {{ row.is_active ? '停用' : '启用' }}
