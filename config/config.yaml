@@ -18,11 +18,18 @@ notify:
 
 # 即时通讯多渠道通知（融合 ongrid notify 能力）
 im_channels:
-  lark_webhook: "${LARK_WEBHOOK}"              # 飞书自定义机器人 Webhook
+  lark_webhook: "${LARK_WEBHOOK}"              # 飞书自定义机器人 Webhook（出站通知）
   lark_secret: "${LARK_SECRET}"                # 飞书加签密钥（可选）
   telegram_bot_token: "${TELEGRAM_BOT_TOKEN}"  # Telegram Bot Token
   telegram_chat_id: "${TELEGRAM_CHAT_ID}"      # Telegram 接收 Chat ID
   slack_webhook: "${SLACK_WEBHOOK}"            # Slack Incoming Webhook
+
+# 飞书自建应用（入站消息 - 飞书群对话触发 Agent）
+feishu_app:
+  app_id: "${FEISHU_APP_ID}"                    # 飞书应用 App ID
+  app_secret: "${FEISHU_APP_SECRET}"            # 飞书应用 App Secret
+  verification_token: "${FEISHU_VERIFICATION_TOKEN}"  # 事件订阅 Verification Token
+  encrypt_key: "${FEISHU_ENCRYPT_KEY}"          # 事件订阅 Encrypt Key（可选，用于加密传输）
 
 # 可观测性配置（Prometheus/Loki/Grafana）
 observability:
