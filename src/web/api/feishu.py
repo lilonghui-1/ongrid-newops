@@ -24,7 +24,7 @@ from fastapi import APIRouter, Header, HTTPException, Request, status
 
 from ..database import SessionLocal
 from ..models.chat_history import ChatHistory
-from ..utils.config_loader import ConfigLoader
+from ...utils.config_loader import ConfigLoader
 
 logger = logging.getLogger(__name__)
 
