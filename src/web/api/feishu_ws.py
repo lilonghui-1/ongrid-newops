@@ -22,13 +22,17 @@ from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 
-# 飞书配置（从环境变量读取，与 feishu.py 共享）
-FEISHU_APP_ID = os.environ.get("FEISHU_APP_ID", "")
-FEISHU_APP_SECRET = os.environ.get("FEISHU_APP_SECRET", "")
-
 # 长连接客户端单例
 _ws_client = None
 _ws_thread = None
+
+
+def _get_app_id() -> str:
+    return os.environ.get("FEISHU_APP_ID", "")
+
+
+def _get_app_secret() -> str:
+    return os.environ.get("FEISHU_APP_SECRET", "")
 
 
 def _convert_event_to_dict(event) -> Dict[str, Any]:
@@ -109,7 +113,9 @@ def start_ws_client():
     """
     global _ws_client
 
-    if not FEISHU_APP_ID or not FEISHU_APP_SECRET:
+    app_id = _get_app_id()
+    app_secret = _get_app_secret()
+    if not app_id or not app_secret:
         logger.warning("飞书长连接未启动：FEISHU_APP_ID / FEISHU_APP_SECRET 未配置")
         return
 
@@ -131,8 +137,8 @@ def start_ws_client():
     )
 
     _ws_client = lark.ws.Client(
-        FEISHU_APP_ID,
-        FEISHU_APP_SECRET,
+        app_id,
+        app_secret,
         event_handler=event_handler,
         log_level=lark.LogLevel.INFO,
     )
@@ -155,7 +161,9 @@ def start_in_background():
         logger.info("飞书长连接模式未启用（FEISHU_USE_WS != true），使用 Webhook 模式")
         return
 
-    if not FEISHU_APP_ID or not FEISHU_APP_SECRET:
+    app_id = _get_app_id()
+    app_secret = _get_app_secret()
+    if not app_id or not app_secret:
         logger.info("飞书长连接未启动：未配置 FEISHU_APP_ID / FEISHU_APP_SECRET")
         return
 
@@ -166,10 +174,12 @@ def start_in_background():
 
 def get_status() -> dict:
     """获取飞书长连接状态。"""
+    app_id = _get_app_id()
+    app_secret = _get_app_secret()
     return {
         "enabled": os.environ.get("FEISHU_USE_WS", "true").lower() in ("true", "1", "yes", "on"),
-        "app_id_configured": bool(FEISHU_APP_ID),
-        "app_secret_configured": bool(FEISHU_APP_SECRET),
+        "app_id_configured": bool(app_id),
+        "app_secret_configured": bool(app_secret),
         "ws_thread_alive": _ws_thread.is_alive() if _ws_thread else False,
-        "ready": bool(FEISHU_APP_ID and FEISHU_APP_SECRET),
+        "ready": bool(app_id and app_secret),
     }
