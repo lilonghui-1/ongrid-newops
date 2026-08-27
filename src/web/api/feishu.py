@@ -30,12 +30,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["飞书事件"])
 
-# ── 飞书配置（从环境变量读取）──
-FEISHU_APP_ID = os.environ.get("FEISHU_APP_ID", "")
-FEISHU_APP_SECRET = os.environ.get("FEISHU_APP_SECRET", "")
-FEISHU_VERIFICATION_TOKEN = os.environ.get("FEISHU_VERIFICATION_TOKEN", "")
-FEISHU_ENCRYPT_KEY = os.environ.get("FEISHU_ENCRYPT_KEY", "")
-
 # ── 飞书 API 基址 ──
 FEISHU_API_BASE = "https://open.feishu.cn/open-apis"
 
@@ -43,17 +37,35 @@ FEISHU_API_BASE = "https://open.feishu.cn/open-apis"
 _token_cache = {"token": "", "expires_at": 0}
 
 
+def _get_feishu_app_id() -> str:
+    return os.environ.get("FEISHU_APP_ID", "")
+
+
+def _get_feishu_app_secret() -> str:
+    return os.environ.get("FEISHU_APP_SECRET", "")
+
+
+def _get_feishu_verification_token() -> str:
+    return os.environ.get("FEISHU_VERIFICATION_TOKEN", "")
+
+
+def _get_feishu_encrypt_key() -> str:
+    return os.environ.get("FEISHU_ENCRYPT_KEY", "")
+
+
 def _get_tenant_access_token() -> str:
     """获取飞书 tenant_access_token（带缓存，有效期约 2 小时）。"""
     if _token_cache["token"] and time.time() < _token_cache["expires_at"] - 60:
         return _token_cache["token"]
 
-    if not FEISHU_APP_ID or not FEISHU_APP_SECRET:
+    app_id = _get_feishu_app_id()
+    app_secret = _get_feishu_app_secret()
+    if not app_id or not app_secret:
         raise RuntimeError("FEISHU_APP_ID / FEISHU_APP_SECRET 未配置")
 
     resp = httpx.post(
         f"{FEISHU_API_BASE}/auth/v3/tenant_access_token/internal",
-        json={"app_id": FEISHU_APP_ID, "app_secret": FEISHU_APP_SECRET},
+        json={"app_id": app_id, "app_secret": app_secret},
         timeout=10,
     )
     data = resp.json()
@@ -291,9 +303,9 @@ async def feishu_webhook(
     if "challenge" in body:
         challenge = body.get("challenge", "")
         # 如有加密，解密验证
-        if "encrypt" in body and FEISHU_ENCRYPT_KEY:
+        if "encrypt" in body and _get_feishu_encrypt_key():
             try:
-                decrypted = _decrypt_payload(FEISHU_ENCRYPT_KEY, body["encrypt"])
+                decrypted = _decrypt_payload(_get_feishu_encrypt_key(), body["encrypt"])
                 return {"challenge": decrypted.get("challenge", challenge)}
             except Exception as e:
                 logger.error(f"飞书 challenge 解密失败: {e}")
@@ -303,17 +315,17 @@ async def feishu_webhook(
     # ── 2. 事件推送 ──
     # 解密（如配置了 Encrypt Key）
     event_data = body
-    if "encrypt" in body and FEISHU_ENCRYPT_KEY:
+    if "encrypt" in body and _get_feishu_encrypt_key():
         try:
-            event_data = _decrypt_payload(FEISHU_ENCRYPT_KEY, body["encrypt"])
+            event_data = _decrypt_payload(_get_feishu_encrypt_key(), body["encrypt"])
         except Exception as e:
             logger.error(f"飞书事件解密失败: {e}")
             raise HTTPException(status_code=400, detail="事件解密失败")
 
     # 验证 Token（如配置了）
-    if FEISHU_VERIFICATION_TOKEN:
+    if _get_feishu_verification_token():
         token = event_data.get("header", {}).get("token", "")
-        if token != FEISHU_VERIFICATION_TOKEN:
+        if token != _get_feishu_verification_token():
             logger.warning(f"飞书事件 Token 校验失败: {token[:8]}...")
             raise HTTPException(status_code=401, detail="Token 校验失败")
 
@@ -339,12 +351,14 @@ async def feishu_status():
     from .feishu_ws import get_status as _get_ws_status
 
     ws_status = _get_ws_status()
+    app_id = _get_feishu_app_id()
+    app_secret = _get_feishu_app_secret()
     return {
-        "app_id_configured": bool(FEISHU_APP_ID),
-        "app_secret_configured": bool(FEISHU_APP_SECRET),
-        "verification_token_configured": bool(FEISHU_VERIFICATION_TOKEN),
-        "encrypt_key_configured": bool(FEISHU_ENCRYPT_KEY),
+        "app_id_configured": bool(app_id),
+        "app_secret_configured": bool(app_secret),
+        "verification_token_configured": bool(_get_feishu_verification_token()),
+        "encrypt_key_configured": bool(_get_feishu_encrypt_key()),
         "webhook_url": "/api/feishu/webhook",
-        "ready": bool(FEISHU_APP_ID and FEISHU_APP_SECRET),
+        "ready": bool(app_id and app_secret),
         "ws_mode": ws_status,
     }
