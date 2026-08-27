@@ -23,6 +23,7 @@ apscheduler>=3.10.0
 
 # Configuration
 pyyaml>=6.0
+python-dotenv>=1.0.0
 
 # Logging
 python-json-logger>=3.0.0
