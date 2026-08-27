@@ -48,7 +48,7 @@ const expandDirection = ref<'both' | 'downstream' | 'upstream'>('both')
 const expandResult = ref<{ center: { node_name: string }; count: number; hits: ExpandHit[] } | null>(null)
 const expandLoading = ref(false)
 
-function typeTag(t: string): 'success' | 'warning' | 'danger' | 'info' | 'primary' {
+function typeTagOverview(t: string): 'success' | 'warning' | 'danger' | 'info' | 'primary' {
   if (t === 'service') return 'success'
   if (t === 'app') return 'primary'
   if (t === 'cluster') return 'warning'
