@@ -54,6 +54,7 @@ def create_app(app_instance) -> FastAPI:
     from .api.skills import router as skills_router
     from .api.mcp import router as mcp_router
     from .api.topology import router as topology_router
+    from .api.users import router as users_router
     from .websocket.log_stream import router as ws_log_router
     from .websocket.server_monitor import router as ws_monitor_router
 
@@ -72,6 +73,7 @@ def create_app(app_instance) -> FastAPI:
     app.include_router(skills_router, prefix="/api/skills", tags=["技能目录"])
     app.include_router(mcp_router, prefix="/api/mcp", tags=["MCP 工具"])
     app.include_router(topology_router, prefix="/api/topology", tags=["拓扑管理"])
+    app.include_router(users_router, prefix="/api/users", tags=["用户管理"])
     app.include_router(ws_log_router, prefix="/ws", tags=["WebSocket"])
     app.include_router(ws_monitor_router, prefix="/ws", tags=["WebSocket"])
 
