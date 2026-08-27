@@ -3,10 +3,10 @@ AIGC:
   ContentProducer: '001191110102MAD55U9H0F10002'
   ContentPropagator: '001191110102MAD55U9H0F10002'
   Label: '1'
-  ProduceID: '0b07a560-4225-47d1-ad68-06fd2bcab716'
-  PropagateID: '0b07a560-4225-47d1-ad68-06fd2bcab716'
-  ReservedCode1: 'edbbb77b-9555-4515-beb2-32b3d721c9b2'
-  ReservedCode2: 'edbbb77b-9555-4515-beb2-32b3d721c9b2'
+  ProduceID: 'bd0d101c-ce2f-430a-9581-60c2c53e281b'
+  PropagateID: 'bd0d101c-ce2f-430a-9581-60c2c53e281b'
+  ReservedCode1: '069a8099-c6a1-45be-9efa-f052a4538c5b'
+  ReservedCode2: '069a8099-c6a1-45be-9efa-f052a4538c5b'
 ---
 
 # 运维 Agent 部署手册
@@ -168,7 +168,7 @@ KUBECONFIG_PATH=/path/to/kubeconfig
 
 ```bash
 # 启动后端（默认监听 0.0.0.0:8000）
-python main.py
+python -m src.main --mode web
 # 或
 uvicorn src.web.app:create_app --host 0.0.0.0 --port 8000 --factory
 ```
@@ -268,7 +268,7 @@ Type=simple
 User=your-user
 WorkingDirectory=/opt/ongrid-ops
 EnvironmentFile=/opt/ongrid-ops/.env
-ExecStart=/opt/ongrid-ops/venv/bin/python main.py
+ExecStart=/opt/ongrid-ops/venv/bin/python -m src.main --mode web
 Restart=always
 RestartSec=10
 
@@ -1030,7 +1030,7 @@ Type=simple
 User=ops
 WorkingDirectory=/opt/ongrid-ops
 EnvironmentFile=/opt/ongrid-ops/.env
-ExecStart=/opt/ongrid-ops/venv/bin/python main.py
+ExecStart=/opt/ongrid-ops/venv/bin/python -m src.main --mode web
 Restart=always
 RestartSec=10
 
