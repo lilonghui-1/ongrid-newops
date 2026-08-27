@@ -99,9 +99,13 @@ def init_database() -> None:
         EmailLog,
         HealRule,
         KnowledgeEntry,
+        Role,
+        RolePermission,
+        RoleResource,
         ServerMetric,
         SystemParameter,
         User,
+        UserRole,
     )
 
     Base.metadata.create_all(bind=engine)
