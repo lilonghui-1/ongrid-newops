@@ -78,7 +78,7 @@ def _convert_event_to_dict(event) -> Dict[str, Any]:
     return {"event": event_dict}
 
 
-def _on_message_receive(ctx, event):
+def _on_message_receive(event):
     """im.message.receive_v1 事件回调。
 
     lark-oapi SDK 会将事件解析为 P2ImMessageReceiveV1 对象。
