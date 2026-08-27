@@ -55,6 +55,7 @@ def create_app(app_instance) -> FastAPI:
     from .api.mcp import router as mcp_router
     from .api.topology import router as topology_router
     from .api.users import router as users_router
+    from .api.roles import router as roles_router
     from .websocket.log_stream import router as ws_log_router
     from .websocket.server_monitor import router as ws_monitor_router
 
@@ -74,6 +75,7 @@ def create_app(app_instance) -> FastAPI:
     app.include_router(mcp_router, prefix="/api/mcp", tags=["MCP 工具"])
     app.include_router(topology_router, prefix="/api/topology", tags=["拓扑管理"])
     app.include_router(users_router, prefix="/api/users", tags=["用户管理"])
+    app.include_router(roles_router, prefix="/api/roles", tags=["角色管理"])
     app.include_router(ws_log_router, prefix="/ws", tags=["WebSocket"])
     app.include_router(ws_monitor_router, prefix="/ws", tags=["WebSocket"])
 
@@ -82,9 +84,10 @@ def create_app(app_instance) -> FastAPI:
     async def health():
         return {"status": "ok"}
 
-    # 初始化数据库 + 默认管理员
+    # 初始化数据库 + 默认管理员 + 内置角色
     init_database()
     _create_default_admin(config)
+    _init_builtin_roles()
 
     # 挂载前端静态资源（必须在所有 API 路由之后）
     dist = Path(__file__).resolve().parents[2] / "web" / "dist"
@@ -112,5 +115,70 @@ def _create_default_admin(config):
             db.add(admin)
             db.commit()
             logger.info("默认管理员已创建")
+    finally:
+        db.close()
+
+
+def _init_builtin_roles():
+    """首次启动创建内置角色（admin / operator / viewer），并分配默认权限。"""
+    from .models.role import Role
+    from .models.role_permission import RolePermission
+    from .models.user_role import UserRole
+    from .schemas.role import ALL_PERMISSIONS
+
+    builtin = {
+        "admin": {
+            "description": "系统管理员，拥有全部权限",
+            "permissions": set(ALL_PERMISSIONS),
+        },
+        "operator": {
+            "description": "操作员，可执行运维操作，不可管理用户和角色",
+            "permissions": set(ALL_PERMISSIONS) - {"user:manage", "role:manage"},
+        },
+        "viewer": {
+            "description": "观察者，仅可查看，不可修改",
+            "permissions": {p for p in ALL_PERMISSIONS if p.endswith(":read")},
+        },
+    }
+
+    db = SessionLocal()
+    try:
+        for name, spec in builtin.items():
+            role = db.query(Role).filter(Role.name == name).first()
+            if not role:
+                role = Role(
+                    name=name,
+                    description=spec["description"],
+                    is_system=True,
+                )
+                db.add(role)
+                db.commit()
+                db.refresh(role)
+                logger.info(f"内置角色 '{name}' 已创建")
+            # 如果角色没有权限记录，则补充默认权限
+            existing_perms = (
+                db.query(RolePermission.permission)
+                .filter(RolePermission.role_id == role.id)
+                .all()
+            )
+            existing_set = {p[0] for p in existing_perms}
+            for perm in spec["permissions"]:
+                if perm not in existing_set:
+                    db.add(RolePermission(role_id=role.id, permission=perm))
+            db.commit()
+
+        # 为已有的 admin 用户分配 admin 角色（迁移）
+        admin_role = db.query(Role).filter(Role.name == "admin").first()
+        if admin_role:
+            admin_users = db.query(User).filter(User.role == "admin").all()
+            for au in admin_users:
+                existing = (
+                    db.query(UserRole)
+                    .filter(UserRole.user_id == au.id, UserRole.role_id == admin_role.id)
+                    .first()
+                )
+                if not existing:
+                    db.add(UserRole(user_id=au.id, role_id=admin_role.id))
+            db.commit()
     finally:
         db.close()
