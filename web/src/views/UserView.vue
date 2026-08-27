@@ -257,7 +257,7 @@ defineExpose({ openMyPwd })
         </template>
       </el-table-column>
       <el-table-column label="操作" width="220" fixed="right">
-        <template #default="{ row }">
+        <template #default="{ row }: { row: UserItem }">
           <el-button link type="primary" :icon="Edit" @click="openEdit(row)">编辑</el-button>
           <el-button link :type="row.is_active ? 'warning' : 'success'" @click="handleToggle(row)">
             {{ row.is_active ? '停用' : '启用' }}
