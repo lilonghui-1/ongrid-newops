@@ -3,11 +3,17 @@ import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import UserView from '@/views/UserView.vue'
 
 const route = useRoute()
 const auth = useAuthStore()
 
 const isCollapse = ref(false)
+const userViewRef = ref<InstanceType<typeof UserView>>()
+
+function openMyPassword() {
+  userViewRef.value?.openMyPwd()
+}
 
 interface MenuItem {
   index: string
@@ -31,6 +37,7 @@ const menus: MenuItem[] = [
   { index: '/topology', title: '拓扑管理', icon: 'Share' },
   { index: '/chat', title: 'AI 对话', icon: 'ChatLineRound' },
   { index: '/audit', title: '审计日志', icon: 'Tickets' },
+  { index: '/users', title: '用户管理', icon: 'User' },
 ]
 
 // /servers/:host 等子路由高亮父级 /servers
@@ -104,7 +111,11 @@ const displayName = computed(
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item @click="handleLogout">
+                <el-dropdown-item @click="openMyPassword">
+                  <el-icon><Key /></el-icon>
+                  修改密码
+                </el-dropdown-item>
+                <el-dropdown-item divided @click="handleLogout">
                   <el-icon><SwitchButton /></el-icon>
                   退出登录
                 </el-dropdown-item>
@@ -120,6 +131,8 @@ const displayName = computed(
             <component :is="Component" />
           </transition>
         </router-view>
+        <!-- 隐藏的 UserView 实例，用于在其他页面弹出修改密码对话框 -->
+        <UserView v-if="route.path !== '/users'" ref="userViewRef" v-show="false" />
       </el-main>
     </el-container>
   </el-container>
