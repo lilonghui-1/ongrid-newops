@@ -5,7 +5,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Type
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, create_model
 
 
 logger = logging.getLogger(__name__)
@@ -136,9 +136,12 @@ class ToolRegistry:
                         Field(default=p.default, description=p.description)
                     )
                 else:
-                    fields[p.name] = (field_type, Field(description=p.description))
+                    fields[p.name] = (
+                        field_type,
+                        Field(description=p.description)
+                    )
 
-            InputModel = type(f"{tool.name}Input", (BaseModel,), fields)
+            InputModel = create_model(f"{tool.name}Input", **fields)
 
             lc_tool = StructuredTool.from_function(
                 func=lambda **kw: tool.execute_with_logging(**kw).model_dump(),
