@@ -38,6 +38,7 @@ const menus: MenuItem[] = [
   { index: '/chat', title: 'AI 对话', icon: 'ChatLineRound' },
   { index: '/audit', title: '审计日志', icon: 'Tickets' },
   { index: '/users', title: '用户管理', icon: 'User' },
+  { index: '/roles', title: '角色管理', icon: 'UserFilled' },
 ]
 
 // /servers/:host 等子路由高亮父级 /servers
