@@ -336,6 +336,9 @@ async def feishu_webhook(
 @router.get("/status", summary="飞书集成状态")
 async def feishu_status():
     """检查飞书集成配置状态。"""
+    from .feishu_ws import get_status as _get_ws_status
+
+    ws_status = _get_ws_status()
     return {
         "app_id_configured": bool(FEISHU_APP_ID),
         "app_secret_configured": bool(FEISHU_APP_SECRET),
@@ -343,4 +346,5 @@ async def feishu_status():
         "encrypt_key_configured": bool(FEISHU_ENCRYPT_KEY),
         "webhook_url": "/api/feishu/webhook",
         "ready": bool(FEISHU_APP_ID and FEISHU_APP_SECRET),
+        "ws_mode": ws_status,
     }
