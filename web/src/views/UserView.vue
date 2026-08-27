@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh, Plus, Edit, Key } from '@element-plus/icons-vue'
+import { Refresh, Plus, Edit, Key, User } from '@element-plus/icons-vue'
 import request from '@/api/request'
 
 /* ── 类型定义 ── */
@@ -210,6 +210,64 @@ async function handleMyPwd() {
   }
 }
 
+/* ── 用户角色分配 ── */
+const roleDialogVisible = ref(false)
+const roleLoading = ref(false)
+const roleForm = reactive({
+  userId: 0,
+  username: '',
+  checkedRoleIds: [] as number[],
+})
+const allRoles = ref<{ id: number; name: string; description: string; is_system: boolean }[]>([])
+
+async function loadAllRoles() {
+  try {
+    const res = await request.get<{ total: number; roles: any[] }>('/roles')
+    allRoles.value = res.data.roles.map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      is_system: r.is_system,
+    }))
+  } catch {
+    // 忽略
+  }
+}
+
+async function openAssignRole(row: any) {
+  roleForm.userId = row.id
+  roleForm.username = row.username
+  roleForm.checkedRoleIds = []
+  roleDialogVisible.value = true
+  // 加载全量角色
+  await loadAllRoles()
+  // 加载该用户已分配的角色
+  try {
+    const res = await request.get<{ user_id: number; roles: { id: number; name: string }[] }>(
+      `/users/${row.id}/roles`,
+    )
+    roleForm.checkedRoleIds = res.data.roles.map((r) => r.id)
+  } catch {
+    // 忽略
+  }
+}
+
+async function handleRoleSubmit() {
+  roleLoading.value = true
+  try {
+    await request.put(`/users/${roleForm.userId}/roles`, {
+      role_ids: roleForm.checkedRoleIds,
+    })
+    ElMessage.success(`用户「${roleForm.username}」的角色已更新`)
+    roleDialogVisible.value = false
+    loadData()
+  } catch {
+    // 错误已由拦截器提示
+  } finally {
+    roleLoading.value = false
+  }
+}
+
 /* ── 初始化 ── */
 onMounted(() => {
   loadData()
@@ -256,9 +314,10 @@ defineExpose({ openMyPwd })
           {{ fmtTime(row.last_login_at) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="220" fixed="right">
+      <el-table-column label="操作" width="290" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" :icon="Edit" @click="openEdit(row)">编辑</el-button>
+          <el-button link type="primary" :icon="User" @click="openAssignRole(row)">角色</el-button>
           <el-button link :type="row.is_active ? 'warning' : 'success'" @click="handleToggle(row)">
             {{ row.is_active ? '停用' : '启用' }}
           </el-button>
@@ -321,6 +380,24 @@ defineExpose({ openMyPwd })
         <el-button type="primary" :loading="myPwdLoading" @click="handleMyPwd">确认修改</el-button>
       </template>
     </el-dialog>
+
+    <!-- 角色分配对话框 -->
+    <el-dialog v-model="roleDialogVisible" :title="`角色分配 - ${roleForm.username}`" width="480px" :close-on-click-modal="false">
+      <p class="pwd-hint">为用户「<strong>{{ roleForm.username }}</strong>」分配角色（可多选）</p>
+      <el-checkbox-group v-model="roleForm.checkedRoleIds" class="role-checkbox-group">
+        <div v-for="r in allRoles" :key="r.id" class="role-checkbox-item">
+          <el-checkbox :label="r.id" :value="r.id">
+            <span class="role-name">{{ r.name }}</span>
+            <el-tag v-if="r.is_system" size="small" type="warning" effect="plain" style="margin-left: 6px">内置</el-tag>
+            <span class="role-desc">{{ r.description }}</span>
+          </el-checkbox>
+        </div>
+      </el-checkbox-group>
+      <template #footer>
+        <el-button @click="roleDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="roleLoading" @click="handleRoleSubmit">保存角色</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -336,6 +413,22 @@ defineExpose({ openMyPwd })
     margin-bottom: 12px;
     color: #606266;
     font-size: 14px;
+  }
+
+  .role-checkbox-group {
+    .role-checkbox-item {
+      margin-bottom: 12px;
+    }
+
+    .role-name {
+      font-weight: 600;
+    }
+
+    .role-desc {
+      color: #909399;
+      font-size: 13px;
+      margin-left: 8px;
+    }
   }
 }
 </style>
