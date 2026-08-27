@@ -54,7 +54,7 @@ class WeComNotifier(Notifier):
         self._webhook = webhook
 
     def is_configured(self) -> bool:
-        return bool(self._webhook and "${" not in (self._webhook or ""))
+        return bool(self._webhook and self._webhook.strip() and "${" not in (self._webhook or ""))
 
     def build_payload(self, title, content, level):
         emoji = NotifyTool.LEVEL_EMOJI.get(level, "")
@@ -86,7 +86,7 @@ class DingTalkNotifier(Notifier):
         self._secret = secret
 
     def is_configured(self) -> bool:
-        return bool(self._webhook and "${" not in (self._webhook or ""))
+        return bool(self._webhook and self._webhook.strip() and "${" not in (self._webhook or ""))
 
     def build_payload(self, title, content, level):
         emoji = NotifyTool.LEVEL_EMOJI.get(level, "")
@@ -133,7 +133,7 @@ class FeishuNotifier(Notifier):
         self._secret = secret
 
     def is_configured(self) -> bool:
-        return bool(self._webhook and "${" not in (self._webhook or ""))
+        return bool(self._webhook and self._webhook.strip() and "${" not in (self._webhook or ""))
 
     def _sign(self) -> Optional[str]:
         if not self._secret:
@@ -163,6 +163,9 @@ class FeishuNotifier(Notifier):
     def send(self, title, content, level) -> bool:
         if not self.is_configured():
             logger.warning("飞书 Webhook 未配置")
+            return False
+        if not (self._webhook or "").startswith(("http://", "https://")):
+            logger.error(f"飞书 Webhook 地址格式错误（需以 http:// 或 https:// 开头）: {self._webhook!r}")
             return False
         resp = httpx.post(self._webhook, json=self.build_payload(title, content, level), timeout=10)
         result = resp.json()
@@ -217,7 +220,7 @@ class SlackNotifier(Notifier):
         self._webhook = webhook
 
     def is_configured(self) -> bool:
-        return bool(self._webhook and "${" not in (self._webhook or ""))
+        return bool(self._webhook and self._webhook.strip() and "${" not in (self._webhook or ""))
 
     COLOR_MAP = {"info": "#2eb886", "warning": "#f2c744", "error": "#e01e5a", "critical": "#d0021b"}
 
