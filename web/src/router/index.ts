@@ -123,6 +123,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/AuditView.vue'),
         meta: { title: '审计日志' },
       },
+      {
+        path: 'users',
+        name: 'Users',
+        component: () => import('@/views/UserView.vue'),
+        meta: { title: '用户管理' },
+      },
     ],
   },
   {
