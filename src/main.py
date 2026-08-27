@@ -5,6 +5,13 @@ import signal
 import sys
 import argparse
 
+# 在最早期加载 .env 文件到环境变量
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from .utils.config_loader import ConfigLoader
 from .utils.logger import setup_logging, get_logger
 from .tools import register_all_tools
