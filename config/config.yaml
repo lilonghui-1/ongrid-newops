@@ -30,6 +30,7 @@ feishu_app:
   app_secret: "${FEISHU_APP_SECRET}"            # 飞书应用 App Secret
   verification_token: "${FEISHU_VERIFICATION_TOKEN}"  # 事件订阅 Verification Token
   encrypt_key: "${FEISHU_ENCRYPT_KEY}"          # 事件订阅 Encrypt Key（可选，用于加密传输）
+  use_ws: "${FEISHU_USE_WS}"                    # 长连接模式开关：true=WebSocket长连接（推荐，无需公网IP），false=Webhook模式
 
 # 可观测性配置（Prometheus/Loki/Grafana）
 observability:
