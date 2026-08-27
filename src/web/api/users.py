@@ -218,3 +218,62 @@ def change_my_password(
     current_user.password_hash = get_password_hash(request.new_password)
     db.commit()
     return {"message": "密码修改成功"}
+
+
+# ---------------------------------------------------------------------------
+# 用户-角色分配（RBAC）
+# ---------------------------------------------------------------------------
+from ..models.role import Role
+from ..models.user_role import UserRole
+from ..schemas.role import UserRoleAssignRequest
+
+
+@router.get("/{user_id}/roles", summary="获取用户角色列表")
+def get_user_roles(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """获取指定用户分配的所有角色。"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"用户 ID {user_id} 不存在")
+    role_ids = (
+        db.query(UserRole.role_id)
+        .filter(UserRole.user_id == user_id)
+        .all()
+    )
+    roles = db.query(Role).filter(Role.id.in_([r[0] for r in role_ids])).all()
+    return {
+        "user_id": user_id,
+        "roles": [
+            {"id": r.id, "name": r.name, "description": r.description or "", "is_system": r.is_system}
+            for r in roles
+        ],
+    }
+
+
+@router.put("/{user_id}/roles", summary="设置用户角色")
+def set_user_roles(
+    user_id: int,
+    request: UserRoleAssignRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """设置用户的角色列表（覆盖式：先删后插）。仅管理员可操作。"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"用户 ID {user_id} 不存在")
+
+    # 校验 role_id 有效性
+    valid_roles = db.query(Role).filter(Role.id.in_(request.role_ids)).all()
+    if len(valid_roles) != len(request.role_ids):
+        invalid_ids = set(request.role_ids) - {r.id for r in valid_roles}
+        raise HTTPException(status_code=400, detail=f"无效的角色 ID: {invalid_ids}")
+
+    # 覆盖式更新
+    db.query(UserRole).filter(UserRole.user_id == user_id).delete()
+    for rid in request.role_ids:
+        db.add(UserRole(user_id=user_id, role_id=rid))
+    db.commit()
+    return {"message": f"用户 '{user.username}' 的角色已更新", "role_ids": request.role_ids}
