@@ -3,10 +3,10 @@ AIGC:
   ContentProducer: '001191110102MAD55U9H0F10002'
   ContentPropagator: '001191110102MAD55U9H0F10002'
   Label: '1'
-  ProduceID: '28b23867-9d63-4cad-a12d-815bd0cc9278'
-  PropagateID: '28b23867-9d63-4cad-a12d-815bd0cc9278'
-  ReservedCode1: 'e8561490-64b6-4696-83c7-6038978dd594'
-  ReservedCode2: 'e8561490-64b6-4696-83c7-6038978dd594'
+  ProduceID: '0b07a560-4225-47d1-ad68-06fd2bcab716'
+  PropagateID: '0b07a560-4225-47d1-ad68-06fd2bcab716'
+  ReservedCode1: 'edbbb77b-9555-4515-beb2-32b3d721c9b2'
+  ReservedCode2: 'edbbb77b-9555-4515-beb2-32b3d721c9b2'
 ---
 
 # 运维 Agent 部署手册
@@ -61,6 +61,28 @@ cd ongrid-ops
 ```
 
 > 如已克隆但未带 submodule，执行 `git submodule update --init`。
+
+#### 3.1.1 网络受限环境：submodule 替代方案
+
+`reference/ongrid` 是子模块，默认从 `https://github.com/ongridio/ongrid.git` 克隆。若服务器无法访问 `github.com`（443 端口超时），可改用 **ongrid-newops 仓库 Release 中预置的源码包**，无需访问外部仓库：
+
+```bash
+cd /home/ongrid-newops
+
+# 下载预打包的 ongrid 参考源码（commit e249f8f）
+wget https://github.com/lilonghui-1/ongrid-newops/releases/download/ongrid-ref-v1/ongrid-e249f8f.tar.gz
+
+# 解压到 reference/ongrid（需先移除空目录或 gitlink）
+mkdir -p reference
+rm -rf reference/ongrid          # 若存在空的 gitlink 目录先移除
+tar zxvf ongrid-e249f8f.tar.gz  # 解压出 ongrid/ 目录
+mv ongrid reference/ongrid
+```
+
+> 说明：
+> - 该下载地址与 `git clone` 一样位于 `github.com` 主域。若服务器连 `github.com` 主域也不通，可在**本机**下载该文件后通过 `scp`/`sftp` 等方式传到服务器，再解压。
+> - 该源码包与 submodule 记录的 commit（`e249f8f`）完全一致，仅缺少 `.git` 元数据，不影响作为参考代码使用。
+> - 若后续通过正常网络执行过 `git submodule update --init`，则无需手动下载。
 
 ### 3.2 后端依赖安装
 
