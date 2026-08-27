@@ -56,6 +56,7 @@ def create_app(app_instance) -> FastAPI:
     from .api.topology import router as topology_router
     from .api.users import router as users_router
     from .api.roles import router as roles_router
+    from .api.feishu import router as feishu_router
     from .websocket.log_stream import router as ws_log_router
     from .websocket.server_monitor import router as ws_monitor_router
 
@@ -76,6 +77,7 @@ def create_app(app_instance) -> FastAPI:
     app.include_router(topology_router, prefix="/api/topology", tags=["拓扑管理"])
     app.include_router(users_router, prefix="/api/users", tags=["用户管理"])
     app.include_router(roles_router, prefix="/api/roles", tags=["角色管理"])
+    app.include_router(feishu_router, prefix="/api/feishu", tags=["飞书事件"])
     app.include_router(ws_log_router, prefix="/ws", tags=["WebSocket"])
     app.include_router(ws_monitor_router, prefix="/ws", tags=["WebSocket"])
 
