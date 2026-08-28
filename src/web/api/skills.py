@@ -50,7 +50,7 @@ def list_skills(
             "confirm_required": manifest.metadata.confirm_required,
             "enabled": True,
         })
-    if enabled:
+    if enabled_only:
         items = [i for i in items if i["enabled"]]
     return {"total": len(items), "items": items}
 
