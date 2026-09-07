@@ -77,7 +77,7 @@ class LogFetchTool(BaseTool):
         else:
             check_cmd = f"stat -c '%s' {file_path} 2>/dev/null && wc -l < {file_path}"
 
-        check_result = self._ssh_tool.execute(host=host, command=check_cmd, timeout=10)
+        check_result = self._ssh_tool.execute(host=host, command=check_cmd, timeout=10, skip_policy=True)
         if not check_result.success:
             return ToolResult(success=False, error=f"无法访问日志文件: {file_path}")
 
@@ -102,7 +102,7 @@ class LogFetchTool(BaseTool):
                 cmd = f"tail -n {lines} {file_path}"
 
         # 3. 执行读取
-        result = self._ssh_tool.execute(host=host, command=cmd, timeout=60)
+        result = self._ssh_tool.execute(host=host, command=cmd, timeout=60, skip_policy=True)
         if result.success:
             content = result.data.get('stdout', '')
             log_lines = [l for l in content.split('\n') if l.strip()]
