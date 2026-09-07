@@ -222,15 +222,16 @@ async def list_servers(
     servers_config = config.servers or []
 
     async def _check_online(host: str) -> bool:
-        """通过 SSH whoami 探测服务器是否在线。"""
+        """通过 SSH 执行只读命令探测服务器是否在线。"""
         if not ssh_tool:
             return False
         try:
             result = await asyncio.to_thread(
                 ssh_tool.execute_with_logging,
                 host=host,
-                command="whoami",
+                command="uptime",
                 timeout=5,
+                skip_policy=True,  # 内部可信调用：uptime 为只读命令
             )
             return result.success
         except Exception:
@@ -312,6 +313,7 @@ async def get_server_status(
         host=host,
         command="uptime -p 2>/dev/null || cat /proc/uptime",
         timeout=10,
+        skip_policy=True,  # 内部可信调用：含 || 和重定向，只读
     ) if ssh_tool else asyncio.to_thread(lambda: None)
 
     metrics_result, uptime_result = await asyncio.gather(metrics_task, uptime_task)
@@ -464,6 +466,7 @@ async def power_operation(
         host=host,
         command=command,
         timeout=10,
+        skip_policy=True,  # 内部可信调用（管理员电源操作，已有 RBAC + admin 权限控制）
     )
 
     action_label = "重启" if request.action == "reboot" else "关机"
