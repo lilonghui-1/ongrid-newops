@@ -144,7 +144,7 @@ class SystemMetricsTool(BaseTool):
             if metric_type == 'all':
                 results = {}
                 for mtype, cmd in commands.items():
-                    r = self._ssh_tool.execute(host=host, command=cmd, timeout=30)
+                    r = self._ssh_tool.execute(host=host, command=cmd, timeout=30, skip_policy=True)
                     results[mtype] = r.data['stdout'] if r.success else f"获取失败: {r.error}"
                 return ToolResult(
                     success=True, data=results,
@@ -154,7 +154,7 @@ class SystemMetricsTool(BaseTool):
                 cmd = commands.get(metric_type)
                 if not cmd:
                     return ToolResult(success=False, error=f"不支持的指标类型: {metric_type}")
-                r = self._ssh_tool.execute(host=host, command=cmd, timeout=30)
+                r = self._ssh_tool.execute(host=host, command=cmd, timeout=30, skip_policy=True)
                 return ToolResult(
                     success=r.success,
                     data=r.data if r.success else None,
@@ -233,7 +233,7 @@ class ServiceControlTool(BaseTool):
             prefix = "sudo " if use_sudo else ""
             cmd = f"{prefix}systemctl {action} {service} 2>&1"
 
-        result = self._ssh_tool.execute(host=host, command=cmd, timeout=30)
+        result = self._ssh_tool.execute(host=host, command=cmd, timeout=30, skip_policy=True)
         return ToolResult(
             success=result.success,
             data=result.data if result.success else None,
