@@ -219,6 +219,7 @@ async def read_config_file(
         host=host,
         command=command,
         timeout=15,
+        skip_policy=True,  # 内部可信调用（Web 平台配置管理）
     )
 
     if not result.success:
@@ -276,6 +277,7 @@ async def save_config_file(
         host=host,
         command=read_command,
         timeout=15,
+        skip_policy=True,  # 内部可信调用（Web 平台配置管理）
     )
 
     original_content = ""
@@ -314,6 +316,7 @@ async def save_config_file(
         host=host,
         command=write_command,
         timeout=15,
+        skip_policy=True,  # 内部可信调用（Web 平台配置管理）
     )
 
     if not write_result.success:
@@ -377,6 +380,7 @@ async def rollback_config(
         host=host,
         command=write_command,
         timeout=15,
+        skip_policy=True,  # 内部可信调用（Web 平台配置管理）
     )
 
     if not write_result.success:
@@ -488,6 +492,7 @@ async def create_config_file(
         host=host,
         command=mkdir_command,
         timeout=10,
+        skip_policy=True,  # 内部可信调用（Web 平台配置管理）
     )
 
     # 写入初始内容（base64 编码安全传输）
@@ -498,6 +503,7 @@ async def create_config_file(
         host=host,
         command=write_command,
         timeout=15,
+        skip_policy=True,  # 内部可信调用（Web 平台配置管理）
     )
 
     if not write_result.success:
