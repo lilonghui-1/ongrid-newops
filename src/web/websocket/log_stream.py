@@ -44,7 +44,8 @@ async def log_stream(websocket: WebSocket, server_host: str, file_path: str = "/
                     ssh_tool.execute_with_logging,
                     host=server_host,
                     command=f"tail -n 50 {file_path}",
-                    timeout=10
+                    timeout=10,
+                    skip_policy=True,  # 内部可信调用（实时日志流）
                 )
 
                 if result.success and result.data:
