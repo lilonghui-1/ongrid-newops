@@ -113,7 +113,8 @@ async def list_services(
 
     command = "systemctl list-units --type=service --no-pager --no-legend"
     result = await asyncio.to_thread(
-        ssh_tool.execute_with_logging, host=host, command=command, timeout=30
+        ssh_tool.execute_with_logging, host=host, command=command, timeout=30,
+        skip_policy=True,  # 内部可信调用（Web 平台服务管理）
     )
 
     if not result.success:
