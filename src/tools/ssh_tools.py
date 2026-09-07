@@ -72,6 +72,7 @@ class CommandPolicy:
             return PolicyDecision(False, "命令过长")
 
         # 1. shell 元字符拒绝（重定向/连接符/子 shell/反引号）
+        #    注意：$、${ 检测仅针对命令文本，内部可信调用可 skip_policy 绕过
         for pattern in DENY_SHELL_PATTERNS:
             if pattern in cmd:
                 return PolicyDecision(False, f"检测到禁止的 shell 元字符: {pattern!r}")
@@ -90,13 +91,14 @@ class CommandPolicy:
             return PolicyDecision(False, f"命令被安全策略拒绝: {first}")
 
         # 4. 只读白名单：不在白名单的命令也拒绝（安全默认）
-        if first not in ALLOW_READONLY_COMMANDS:
-            return PolicyDecision(False, f"命令不在只读白名单中: {first}")
+        #    支持多词条目前缀匹配（如 "systemctl list-units"、"docker ps"）
+        if not self._match_whitelist(segments[0]):
+            return PolicyDecision(False, f"命令不在只读白名单中: {' '.join(segments[0][:3])}")
 
         # 5. 管道后命令也需在只读白名单
         for seg in segments[1:]:
-            if seg and seg[0] not in ALLOW_READONLY_COMMANDS:
-                return PolicyDecision(False, f"管道后命令不在白名单: {seg[0]}")
+            if seg and not self._match_whitelist(seg):
+                return PolicyDecision(False, f"管道后命令不在白名单: {' '.join(seg[:3])}")
 
         # 6. 白名单内命令的禁用参数（如 find -delete / -exec）
         first_args = segments[0][1:]
@@ -104,6 +106,37 @@ class CommandPolicy:
             return PolicyDecision(False, "find 写参数被拒绝（-delete/-exec 等）")
 
         return PolicyDecision(True, "只读命令，允许执行")
+
+    @staticmethod
+    def _match_whitelist(words: List[str]) -> bool:
+        """白名单匹配：支持单词条目与多词前缀匹配"""
+        for allowed in ALLOW_READONLY_COMMANDS:
+            allowed_words = allowed.split()
+            if words[:len(allowed_words)] == allowed_words:
+                return True
+        return False
+
+    @staticmethod
+    def is_readonly_command(command: str) -> bool:
+        """判断命令是否只读（含多词条目的白名单匹配）"""
+        try:
+            segments = [shlex.split(seg.strip()) for seg in (command or "").split("|")]
+        except ValueError:
+            return False
+        for seg in segments:
+            if not seg:
+                continue
+            # 尝试多词匹配（如 "systemctl list-units"、"docker ps"）
+            words = seg
+            matched = False
+            for allowed in ALLOW_READONLY_COMMANDS:
+                allowed_words = allowed.split()
+                if words[:len(allowed_words)] == allowed_words:
+                    matched = True
+                    break
+            if not matched:
+                return False
+        return True
 
     def truncate_stdout(self, text: str) -> str:
         """截断 stdout 到上限"""
@@ -212,6 +245,7 @@ class SSHExecuteTool(BaseTool):
         ToolParameter(name="timeout", type="integer", description="超时时间(秒)", required=False, default=30),
         ToolParameter(name="username", type="string", description="SSH 用户名（可选，默认使用配置中的用户）", required=False),
         ToolParameter(name="use_sudo", type="boolean", description="是否使用 sudo 执行", required=False, default=False),
+        ToolParameter(name="skip_policy", type="boolean", description="内部使用：跳过命令安全沙箱（仅限系统内部可信调用，如 Web 平台监控采集）", required=False, default=False),
     ]
 
     def __init__(self, config=None):
@@ -233,15 +267,17 @@ class SSHExecuteTool(BaseTool):
         use_sudo = kwargs.get('use_sudo', False)
 
         # 命令安全策略：只读沙箱（sudo 命令直接拒绝，写操作拒绝）
-        if use_sudo:
-            return ToolResult(success=False, error="安全策略拒绝: 禁止 sudo 执行", metadata={"host": host})
-        decision = self._policy.decide(command)
-        if not decision.allowed:
-            return ToolResult(
-                success=False,
-                error=f"命令被安全策略拒绝: {decision.reason}",
-                metadata={"host": host, "command": command},
-            )
+        # skip_policy=True 仅供系统内部可信调用（Web 平台监控/服务管理），不受沙箱限制
+        if not kwargs.get('skip_policy', False):
+            if use_sudo:
+                return ToolResult(success=False, error="安全策略拒绝: 禁止 sudo 执行", metadata={"host": host})
+            decision = self._policy.decide(command)
+            if not decision.allowed:
+                return ToolResult(
+                    success=False,
+                    error=f"命令被安全策略拒绝: {decision.reason}",
+                    metadata={"host": host, "command": command},
+                )
 
         server = self._find_server(host)
 
