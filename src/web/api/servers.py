@@ -1,7 +1,7 @@
 """服务器路由 - 服务器列表、状态、指标历史、电源操作、阈值配置
 
 端点：
-- GET  /                 : 返回所有配置的服务器列表（探测在线状态）
+- GET  /                 : 返回所有配置的服务器列表（TCP 端口探测在线状态）
 - GET  /thresholds       : 获取当前监控阈值配置
 - PUT  /thresholds       : 更新监控阈值配置（admin 权限）
 - GET  /{host}/status    : 获取服务器实时状态（CPU/内存/磁盘）
@@ -208,7 +208,8 @@ async def list_servers(
 ):
     """返回所有已配置的服务器列表，并探测在线状态。
 
-    通过 SSH 执行 ``whoami`` 命令探测每台服务器是否在线。
+    通过 TCP 连接服务器 SSH 端口探测在线状态（不依赖 SSH 认证，
+    3 秒超时快速返回，避免列表接口被慢连接卡死）。
     """
     try:
         config = ConfigLoader.get_instance().config
@@ -218,28 +219,27 @@ async def list_servers(
             detail="配置未加载",
         )
 
-    ssh_tool = ToolRegistry.get("ssh_execute")
     servers_config = config.servers or []
 
-    async def _check_online(host: str) -> bool:
-        """通过 SSH 执行只读命令探测服务器是否在线。"""
-        if not ssh_tool:
-            return False
+    async def _check_online(host: str, port: int, timeout: float = 3.0) -> bool:
+        """通过 TCP 连接 SSH 端口探测服务器是否在线（秒级返回）。"""
         try:
-            result = await asyncio.to_thread(
-                ssh_tool.execute_with_logging,
-                host=host,
-                command="uptime",
-                timeout=5,
-                skip_policy=True,  # 内部可信调用：uptime 为只读命令
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port), timeout=timeout
             )
-            return result.success
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except Exception:
+                pass
+            return True
         except Exception:
             return False
 
-    # 并行探测所有服务器
-    hosts = [s.host for s in servers_config]
-    online_results = await asyncio.gather(*[_check_online(h) for h in hosts])
+    # 并行探测所有服务器（TCP 端口探测，不占用 SSH 连接池）
+    online_results = await asyncio.gather(
+        *[_check_online(s.host, s.port) for s in servers_config]
+    )
 
     result: List[ServerInfo] = []
     for server_cfg, online in zip(servers_config, online_results):
