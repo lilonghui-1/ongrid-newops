@@ -160,7 +160,7 @@ class SSHConnectionPool:
         password: str = None,
         private_key_path: str = None,
     ) -> paramiko.SSHClient:
-        """获取或创建 SSH 连接"""
+        """获取或创建 SSH 连接（连接创建在锁外，锁内仅做缓存读写）"""
         key = f"{host}:{port}:{username}"
 
         if key in cls._connections:
@@ -176,35 +176,40 @@ class SSHConnectionPool:
                     pass
                 del cls._connections[key]
 
+        # 锁外建立连接（慢操作，避免多线程串行等待）
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        connect_kwargs = {
+            'hostname': host,
+            'port': port,
+            'username': username,
+            'timeout': 5,
+            'banner_timeout': 10,
+            'auth_timeout': 10,
+        }
+
+        if private_key_path:
+            try:
+                pkey = paramiko.RSAKey.from_private_key_file(private_key_path)
+                connect_kwargs['pkey'] = pkey
+            except paramiko.ssh_exception.SSHException:
+                # 尝试 Ed25519 密钥
+                pkey = paramiko.Ed25519Key.from_private_key_file(private_key_path)
+                connect_kwargs['pkey'] = pkey
+        elif password:
+            connect_kwargs['password'] = password
+
+        client.connect(**connect_kwargs)
+
+        # 锁内写入缓存（快操作）。若并发时已有他人建好，则复用并关闭本次新建
         with cls._lock:
-            # 双重检查
             if key in cls._connections:
-                return cls._connections[key]
-
-            client = paramiko.SSHClient()
-            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-            connect_kwargs = {
-                'hostname': host,
-                'port': port,
-                'username': username,
-                'timeout': 10,
-                'banner_timeout': 30,
-                'auth_timeout': 30,
-            }
-
-            if private_key_path:
                 try:
-                    pkey = paramiko.RSAKey.from_private_key_file(private_key_path)
-                    connect_kwargs['pkey'] = pkey
-                except paramiko.ssh_exception.SSHException:
-                    # 尝试 Ed25519 密钥
-                    pkey = paramiko.Ed25519Key.from_private_key_file(private_key_path)
-                    connect_kwargs['pkey'] = pkey
-            elif password:
-                connect_kwargs['password'] = password
-
-            client.connect(**connect_kwargs)
+                    client.close()
+                except Exception:
+                    pass
+                return cls._connections[key]
             cls._connections[key] = client
             logger.info(f"SSH connection established: {key}")
             return client
