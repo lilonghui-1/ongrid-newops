@@ -1,6 +1,7 @@
 """SSH 远程执行工具 - 支持连接池、密钥/密码认证、超时控制、命令安全策略"""
 
 import shlex
+import socket
 import threading
 import logging
 from dataclasses import dataclass, field
@@ -180,6 +181,17 @@ class SSHConnectionPool:
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
+        # 私钥路径前置校验：路径不存在时给出明确报错，避免误当成真实密钥
+        # （常见配置错误：密码被填到 private_key_path / ${VAR} 未替换）
+        if private_key_path:
+            from pathlib import Path as _Path
+            if not _Path(private_key_path).expanduser().is_file():
+                raise FileNotFoundError(
+                    f"SSH 私钥文件不存在: {private_key_path!r}（请检查 servers.yaml 的 "
+                    f"private_key_path / 环境变量 SSH_PRIVATE_KEY_PATH；若使用密码登录，"
+                    f"请改用 password 字段）"
+                )
+
         connect_kwargs = {
             'hostname': host,
             'port': port,
@@ -340,6 +352,14 @@ class SSHExecuteTool(BaseTool):
 
         except paramiko.AuthenticationException as e:
             return ToolResult(success=False, error=f"SSH 认证失败: {e}", metadata={"host": host})
+        except socket.gaierror:
+            return ToolResult(
+                success=False,
+                error=f"无法解析主机名: {host}（请检查 servers.yaml 中的 host 配置或 DNS/hosts）",
+                metadata={"host": host},
+            )
+        except FileNotFoundError as e:
+            return ToolResult(success=False, error=str(e), metadata={"host": host})
         except paramiko.SSHException as e:
             return ToolResult(success=False, error=f"SSH 连接错误: {e}", metadata={"host": host})
         except Exception as e:
